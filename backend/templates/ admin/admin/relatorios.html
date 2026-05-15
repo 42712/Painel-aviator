@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios - Painel Master</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0F0F1A;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+        }
+        .sidebar {
+            width: 220px;
+            background: #1a1a2e;
+            padding: 30px 20px;
+            min-height: 100vh;
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+        .sidebar h2 { font-size: 16px; font-weight: 800; margin-bottom: 30px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar a { display: block; padding: 12px 16px; color: #888; text-decoration: none;
+            border-radius: 10px; margin-bottom: 5px; font-weight: 600; font-size: 14px; transition: all 0.3s; }
+        .sidebar a:hover, .sidebar a.ativo { background: rgba(145,62,248,0.15); color: #913EF8; }
+        .sidebar a.sair { margin-top: 30px; color: #FF2D55; }
+        .sidebar a.sair:hover { background: rgba(255,45,85,0.1); }
+        .content { flex: 1; padding: 30px; }
+        .content h1 { font-size: 24px; font-weight: 800; margin-bottom: 25px; }
+
+        .stats-rapidas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-card .num { font-size: 24px; font-weight: 900; }
+        .stat-card .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+        .export-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-export {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-export:hover { opacity: 0.9; }
+
+        .tabela {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .tabela th {
+            text-align: left;
+            padding: 12px 10px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .tabela td {
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .tabela tr:hover td { background: rgba(255,255,255,0.02); }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+        .tag-ativo { background: rgba(0,255,136,0.15); color: #00ff88; }
+        .tag-bloqueado { background: rgba(255,45,85,0.15); color: #FF2D55; }
+        .tag-online { background: rgba(52,156,255,0.15); color: #349CFF; }
+        .tag-offline { background: rgba(255,255,255,0.05); color: #555; }
+        .tag-pago { background: rgba(0,255,136,0.1); color: #00ff88; }
+        .tag-devendo { background: rgba(255,45,85,0.1); color: #FF2D55; }
+        .filtro-input {
+            padding: 8px 12px;
+            background: #12121e;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            width: 200px;
+        }
+        .filtro-input:focus { border-color: #913EF8; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; padding: 20px 10px; }
+            .sidebar h2, .sidebar a span { display: none; }
+            .sidebar a { text-align: center; font-size: 18px; padding: 10px; }
+            .content { padding: 15px; overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>✈️ MASTER</h2>
+        <a href="/admin"><span>📊 Dashboard</span></a>
+        <a href="/admin/clientes"><span>👥 Clientes</span></a>
+        <a href="/admin/relatorios" class="ativo"><span>📈 Relatórios</span></a>
+        <a href="/logout" class="sair"><span>🚪 Sair</span></a>
+    </div>
+    <div class="content">
+        <h1>📈 Relatórios</h1>
+
+        {% set ativos = clientes|selectattr('bloqueado', 'equalto', 0)|list %}
+        {% set bloqueados = clientes|selectattr('bloqueado', 'equalto', 1)|list %}
+        {% set online_now = clientes|selectattr('online', 'equalto', 1)|list %}
+
+        <div class="stats-rapidas">
+            <div class="stat-card">
+                <div class="num" style="color:#913EF8;">{{ clientes|length }}</div>
+                <div class="label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="num" style="color:#00ff88;">{{ ativos|length }}</div>
+                <div class="label">Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="num" style="color:#FF2D55;">{{ bloqueados|length }}</div>
+                <div class="label">Bloqueados</div>
+            </div>
+            <div class="stat-card">
+                <div class="num" style="color:#349CFF;">{{ online_now|length }}</div>
+                <div class="label">Online</div>
+            </div>
+        </div>
+
+        <div style="background:#1a1a2e;border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.05);overflow-x:auto;">
+            <div class="export-bar">
+                <div>
+                    <input type="text" class="filtro-input" id="filtroTabela" placeholder="🔍 Filtrar..." onkeyup="filtrar()">
+                </div>
+                <a href="/admin/relatorios/exportar" class="btn-export">📥 EXPORTAR CSV</a>
+            </div>
+
+            <table class="tabela" id="tabelaRelatorios">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Login</th>
+                        <th>Status</th>
+                        <th>Online</th>
+                        <th>Observação</th>
+                        <th>Último Acesso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes %}
+                    <tr>
+                        <td><strong>{{ c.nome or '-' }}</strong></td>
+                        <td>{{ c.login }}</td>
+                        <td>
+                            {% if c.bloqueado %}
+                            <span class="tag tag-bloqueado">Bloqueado</span>
+                            {% else %}
+                            <span class="tag tag-ativo">Ativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.online %}
+                            <span class="tag tag-online">Online</span>
+                            {% else %}
+                            <span class="tag tag-offline">Offline</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.observacao and 'pagou' in c.observacao.lower() %}
+                            <span class="tag tag-pago">{{ c.observacao }}</span>
+                            {% elif c.observacao %}
+                            <span class="tag tag-devendo">{{ c.observacao }}</span>
+                            {% else %}
+                            <span style="color:#555;">-</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#888;font-size:12px;">{{ c.ultimo_acesso or 'Nunca' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" style="text-align:center;padding:30px;color:#555;">Nenhum cliente cadastrado</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filtrar() {
+            const input = document.getElementById('filtroTabela');
+            const filtro = input.value.toLowerCase();
+            const linhas = document.querySelectorAll('#tabelaRelatorios tbody tr');
+            linhas.forEach(linha => {
+                const texto = linha.textContent.toLowerCase();
+                linha.style.display = texto.includes(filtro) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
