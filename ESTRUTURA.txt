@@ -1,0 +1,117 @@
+╔══════════════════════════════════════════════════════════════╗
+║       3 SNIPER AVIATOR PAINEL - ESTRUTURA DO PROJETO       ║
+╚══════════════════════════════════════════════════════════════╝
+
+📁 C:\PROJETOS\3 SNIPER AVIATOR PAINEL\
+│
+├── 📄 main.py                # Entry point principal
+├── 📄 run.py                 # Script para rodar localmente
+├── 📄 requirements.txt       # Dependências raiz
+├── 📄 Procfile               # Render: comando de inicialização
+├── 📄 runtime.txt            # Versão do Python
+├── 📄 README.md              # Documentação
+├── 📄 ESTRUTURA.txt          # Este arquivo
+│
+├── 📁 backend/
+│   ├── 📄 __init__.py        # Marca como pacote Python
+│   ├── 📄 config.py          # Configurações (cores, WS, MAX_HISTORICO)
+│   ├── 📄 models.py          # Modelo Rodada (cor, soma, classificação)
+│   ├── 📄 database.py        # SQLite: init_db, CRUD clientes, estatísticas
+│   ├── 📄 auth.py            # Login/decorators: master_required, cliente_required
+│   ├── 📄 data_collector.py  # Coleta de dados (simulado ou Sorte da Bet)
+│   ├── 📄 server.py          # Flask + SocketIO + TODAS as rotas
+│   ├── 📄 run.py             # Inicialização local do backend
+│   ├── 📄 start.py           # Script de inicialização alternativo
+│   ├── 📄 requirements.txt   # Dependências do backend
+│   │
+│   ├── 📁 data/
+│   │   └── 📄 aviator.db     # Banco SQLite
+│   │
+│   └── 📁 templates/
+│       ├── 📄 index.html     # Página inicial
+│       ├── 📄 login.html     # Login master
+│       ├── 📄 status.html    # Página de status do servidor
+│       │
+│       ├── 📁 admin/
+│       │   ├── 📄 dashboard.html   # Dashboard admin
+│       │   ├── 📄 clientes.html    # CRUD clientes
+│       │   └── 📄 relatorios.html  # Relatórios + CSV
+│       │
+│       └── 📁 cliente/
+│           ├── 📄 login.html       # Login do cliente
+│           └── 📄 painel.html      # Painel Aviator ao vivo
+│
+├── 📁 frontend/              # (reservado / conteúdo frontend)
+│
+├── 📁 extension/             # Extensão para Kiwi Browser
+│   ├── 📄 manifest.json      # Configuração da extensão
+│   ├── 📄 popup.html         # Popup (configurar URL do painel)
+│   ├── 📄 icon.py            # Gerador do ícone
+│   └── 📄 icon.png           # Ícone 128x128
+│
+├── 📁 data/                  # Dados adicionais
+│
+└── 📁 __pycache__/           # (cache Python, ignorar)
+
+═══════════════════════════════════════════════════════════════
+✅ PARA SUBIR NO GITHUB:
+═══════════════════════════════════════════════════════════════
+
+Arquivos para commitar na RAIZ do repositório:
+
+├── main.py
+├── run.py
+├── requirements.txt
+├── Procfile
+├── runtime.txt
+├── README.md
+├── ESTRUTURA.txt
+│
+├── backend/                  → (pasta inteira)
+│   ├── __init__.py
+│   ├── config.py
+│   ├── models.py
+│   ├── database.py
+│   ├── auth.py
+│   ├── data_collector.py
+│   ├── server.py
+│   ├── run.py
+│   ├── start.py
+│   ├── requirements.txt
+│   ├── data/
+│   │   └── aviator.db
+│   └── templates/
+│       ├── index.html
+│       ├── login.html
+│       ├── status.html
+│       ├── admin/
+│       │   ├── dashboard.html
+│       │   ├── clientes.html
+│       │   └── relatorios.html
+│       └── cliente/
+│           ├── login.html
+│           └── painel.html
+│
+├── frontend/                 → (se houver conteúdo)
+│
+├── extension/                → (pasta inteira)
+│   ├── manifest.json
+│   ├── popup.html
+│   ├── icon.py
+│   └── icon.png
+│
+└── data/                     → (pasta, pode ficar vazia)
+
+═══════════════════════════════════════════════════════════════
+📦 RENDER CONFIG:
+═══════════════════════════════════════════════════════════════
+
+Build Command:  pip install -r requirements.txt
+Start Command:  gunicorn -k eventlet -w 1 --bind 0.0.0.0:$PORT main:application
+
+═══════════════════════════════════════════════════════════════
+🔥 COMANDOS RÁPIDOS:
+═══════════════════════════════════════════════════════════════
+
+Rodar local:     python run.py
+Abrir painel:    http://localhost:5000
