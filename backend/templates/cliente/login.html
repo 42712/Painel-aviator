@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acessar Painel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0F0F1A;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-box {
+            background: #1a1a2e;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 380px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sub {
+            text-align: center;
+            color: #555;
+            font-size: 13px;
+            margin-bottom: 25px;
+        }
+        .form-group { margin-bottom: 18px; }
+        label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input {
+            width: 100%;
+            padding: 13px 15px;
+            background: #12121e;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        input:focus { border-color: #913EF8; }
+        .btn {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+        .erro {
+            background: rgba(255,45,85,0.1);
+            border: 1px solid rgba(255,45,85,0.3);
+            color: #FF2D55;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="logo">✈️ PAINEL</div>
+        <div class="sub">Digite suas credenciais para acessar</div>
+        {% if erro %}
+        <div class="erro">{{ erro }}</div>
+        {% endif %}
+        <form method="POST" action="/painel/{{ token }}/entrar">
+            <div class="form-group">
+                <label>Login</label>
+                <input type="text" name="login" placeholder="Seu login" required>
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" name="senha" placeholder="Sua senha" required>
+            </div>
+            <button type="submit" class="btn">🚀 ENTRAR NO PAINEL</button>
+        </form>
+    </div>
+</body>
+</html>
