@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Painel Master</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0F0F1A;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+        }
+        .sidebar {
+            width: 220px;
+            background: #1a1a2e;
+            padding: 30px 20px;
+            min-height: 100vh;
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+        .sidebar h2 { font-size: 16px; font-weight: 800; margin-bottom: 30px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar a { display: block; padding: 12px 16px; color: #888; text-decoration: none;
+            border-radius: 10px; margin-bottom: 5px; font-weight: 600; font-size: 14px; transition: all 0.3s; }
+        .sidebar a:hover, .sidebar a.ativo { background: rgba(145,62,248,0.15); color: #913EF8; }
+        .sidebar a.sair { margin-top: 30px; color: #FF2D55; }
+        .sidebar a.sair:hover { background: rgba(255,45,85,0.1); }
+        .content { flex: 1; padding: 30px; }
+        .content h1 { font-size: 24px; font-weight: 800; margin-bottom: 25px; }
+
+        .card-form {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .card-form h2 { font-size: 16px; margin-bottom: 15px; }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-group { margin-bottom: 0; }
+        .form-group label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px 12px; background: #12121e;
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff;
+            font-size: 13px; outline: none; font-family: 'Inter', sans-serif;
+        }
+        .form-group input:focus { border-color: #913EF8; }
+        .btn {
+            padding: 10px 20px; background: linear-gradient(135deg, #349CFF, #913EF8);
+            border: none; border-radius: 8px; color: #fff; font-size: 13px;
+            font-weight: 700; cursor: pointer; transition: all 0.3s; font-family: 'Inter', sans-serif;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-block { background: #FF2D55; font-size: 12px; padding: 6px 12px; }
+        .btn-unblock { background: #00ff88; color: #000; font-size: 12px; padding: 6px 12px; }
+
+        .erro { background: rgba(255,45,85,0.1); border: 1px solid rgba(255,45,85,0.3);
+            color: #FF2D55; padding: 12px; border-radius: 10px; font-size: 13px; margin-bottom: 20px; }
+
+        .tabela {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .tabela th {
+            text-align: left;
+            padding: 12px 10px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .tabela td {
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        .tabela tr:hover td { background: rgba(255,255,255,0.02); }
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .tag-ativo { background: rgba(0,255,136,0.15); color: #00ff88; }
+        .tag-bloqueado { background: rgba(255,45,85,0.15); color: #FF2D55; }
+        .tag-online { background: rgba(52,156,255,0.15); color: #349CFF; }
+        .tag-offline { background: rgba(255,255,255,0.05); color: #555; }
+        .link-url {
+            color: #349CFF;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .link-url:hover { text-decoration: underline; }
+        .obs { font-size: 12px; color: #aaa; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+        .btn-editar {
+            background: none; border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; padding: 5px 12px; border-radius: 6px;
+            cursor: pointer; font-size: 11px; font-family: 'Inter', sans-serif;
+        }
+        .btn-editar:hover { border-color: #913EF8; color: #913EF8; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; z-index: 100; left: 0; top: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.7);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: #1a1a2e; border-radius: 16px; padding: 30px;
+            max-width: 500px; width: 90%; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .modal-content h2 { margin-bottom: 20px; font-size: 18px; }
+        .modal .form-group { margin-bottom: 15px; }
+        .modal .form-group label { font-size: 12px; }
+        .modal .form-group input { font-size: 14px; }
+        .fechar { float: right; cursor: pointer; color: #666; font-size: 20px; }
+        .fechar:hover { color: #fff; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; padding: 20px 10px; }
+            .sidebar h2, .sidebar a span { display: none; }
+            .sidebar a { text-align: center; font-size: 18px; padding: 10px; }
+            .content { padding: 15px; overflow-x: auto; }
+            .tabela { font-size: 11px; }
+            .tabela th, .tabela td { padding: 8px 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>✈️ MASTER</h2>
+        <a href="/admin"><span>📊 Dashboard</span></a>
+        <a href="/admin/clientes" class="ativo"><span>👥 Clientes</span></a>
+        <a href="/admin/relatorios"><span>📈 Relatórios</span></a>
+        <a href="/logout" class="sair"><span>🚪 Sair</span></a>
+    </div>
+    <div class="content">
+        <h1>👥 Gerenciar Clientes</h1>
+
+        {% if erro %}
+        <div class="erro">{{ erro }}</div>
+        {% endif %}
+
+        <!-- Formulário Criar Cliente -->
+        <div class="card-form">
+            <h2>➕ Novo Cliente</h2>
+            <form method="POST" action="/admin/clientes/criar">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Login</label>
+                        <input type="text" name="login" placeholder="cliente01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Senha</label>
+                        <input type="text" name="senha" placeholder="senha123" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nome</label>
+                        <input type="text" name="nome" placeholder="Nome do cliente">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tempo de Acesso (minutos)</label>
+                        <input type="number" name="tempo_acesso" value="0" min="0" placeholder="0 = ilimitado">
+                    </div>
+                    <div class="form-group">
+                        <label>Observação</label>
+                        <input type="text" name="observacao" placeholder="pagou, não pagou, etc">
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:flex-end;">
+                        <button type="submit" class="btn">✅ CRIAR</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabela de Clientes -->
+        <div style="background:#1a1a2e;border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.05);overflow-x:auto;">
+            <table class="tabela">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Login</th>
+                        <th>Status</th>
+                        <th>Online</th>
+                        <th>Link Painel</th>
+                        <th>Observação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes %}
+                    <tr>
+                        <td style="color:#666;">#{{ c.id }}</td>
+                        <td><strong>{{ c.nome or '-' }}</strong></td>
+                        <td>{{ c.login }}</td>
+                        <td>
+                            {% if c.bloqueado %}
+                            <span class="tag tag-bloqueado">🔒 Bloqueado</span>
+                            {% else %}
+                            <span class="tag tag-ativo">✅ Ativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.online %}
+                            <span class="tag tag-online">🟢 Online</span>
+                            {% else %}
+                            <span class="tag tag-offline">⚫ Offline</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not c.bloqueado %}
+                            <a href="/painel/{{ c.token }}" target="_blank" class="link-url">🔗 Abrir</a>
+                            {% else %}
+                            <span style="color:#555;">---</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="obs">{{ c.observacao or '-' }}</span></td>
+                        <td style="display:flex;gap:5px;flex-wrap:wrap;">
+                            <button class="btn-editar" onclick="editar({{ c.id }}, '{{ c.login }}', '{{ c.nome }}', '{{ c.observacao }}', {{ c.tempo_acesso }})">✏️</button>
+                            {% if c.bloqueado %}
+                            <form method="POST" action="/admin/clientes/{{ c.id }}/bloquear" style="display:inline;">
+                                <button type="submit" class="btn-editar btn-unblock">🔓</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="/admin/clientes/{{ c.id }}/bloquear" style="display:inline;">
+                                <button type="submit" class="btn-editar btn-block">🔒</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:#555;">Nenhum cliente ainda. Crie o primeiro!</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Editar -->
+    <div id="modalEditar" class="modal">
+        <div class="modal-content">
+            <span class="fechar" onclick="fecharModal()">&times;</span>
+            <h2>✏️ Editar Cliente</h2>
+            <form method="POST" id="formEditar">
+                <div class="form-group">
+                    <label>Login</label>
+                    <input type="text" name="login" id="editarLogin" required>
+                </div>
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" name="nome" id="editarNome">
+                </div>
+                <div class="form-group">
+                    <label>Nova Senha (deixe vazio pra manter)</label>
+                    <input type="text" name="senha" id="editarSenha" placeholder="Nova senha...">
+                </div>
+                <div class="form-group">
+                    <label>Observação</label>
+                    <input type="text" name="observacao" id="editarObs">
+                </div>
+                <div class="form-group">
+                    <label>Tempo de Acesso (minutos, 0 = ilimitado)</label>
+                    <input type="number" name="tempo_acesso" id="editarTempo" min="0">
+                </div>
+                <button type="submit" class="btn" style="width:100%;margin-top:10px;">💾 SALVAR</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function editar(id, login, nome, obs, tempo) {
+            document.getElementById('formEditar').action = '/admin/clientes/' + id + '/editar';
+            document.getElementById('editarLogin').value = login;
+            document.getElementById('editarNome').value = nome;
+            document.getElementById('editarObs').value = obs;
+            document.getElementById('editarTempo').value = tempo;
+            document.getElementById('modalEditar').style.display = 'flex';
+        }
+        function fecharModal() {
+            document.getElementById('modalEditar').style.display = 'none';
+        }
+        window.onclick = function(e) {
+            if (e.target == document.getElementById('modalEditar')) fecharModal();
+        }
+    </script>
+</body>
+</html>
