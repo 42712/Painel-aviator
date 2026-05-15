@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Painel Aviator</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0F0F1A;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-logo h1 {
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #349CFF, #913EF8, #FF2D95);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #888;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .status-dot.disconnected { background: #ff4444; animation: none; }
+
+        /* Container Principal */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        /* Últimas Rodadas (ao vivo) */
+        .ultimas-live {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .vela-card {
+            flex: 1;
+            background: #12121e;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.3s;
+        }
+        .vela-card .label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .vela-card .rodada-num {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .vela-card .multiplicador {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .vela-card .soma {
+            font-size: 14px;
+            color: #aaa;
+        }
+        .vela-card .soma span {
+            display: inline-block;
+            background: rgba(255,255,255,0.08);
+            padding: 2px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .vela-card.penultima {
+            opacity: 0.7;
+            transform: scale(0.95);
+        }
+        .vela-card .vazio {
+            color: #444;
+            font-size: 14px;
+            padding: 20px 0;
+        }
+
+        /* Gráfico */
+        .chart-container {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            height: 400px;
+            position: relative;
+        }
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Catálogo de Velas */
+        .catalogo-container {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .catalogo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .catalogo-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .catalogo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 6px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .catalogo-grid::-webkit-scrollbar { width: 4px; }
+        .catalogo-grid::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        .vela-mini {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 6px 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 10px;
+            background: #12121e;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .vela-mini:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            border-color: rgba(255,255,255,0.2);
+        }
+        .vela-mini .mult {
+            font-weight: 800;
+            font-size: 12px;
+        }
+        .vela-mini .rodada {
+            font-size: 8px;
+            color: #666;
+        }
+        .vela-mini .soma-tag {
+            font-size: 9px;
+            font-weight: 700;
+            margin-top: 1px;
+        }
+
+        /* Filtros do Histórico */
+        .filtros-container {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .filtros-botoes {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .filtro-btn {
+            padding: 10px 24px;
+            border: 2px solid transparent;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            background: #12121e;
+            color: #888;
+        }
+        .filtro-btn:hover { transform: translateY(-2px); }
+        .filtro-btn.ativo {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .filtro-btn.todas { border-color: #555; color: #fff; }
+        .filtro-btn.todas.ativo { background: #555; }
+        .filtro-btn.azul { border-color: #349CFF; color: #349CFF; }
+        .filtro-btn.azul.ativo { background: #349CFF; color: #fff; }
+        .filtro-btn.roxa { border-color: #913EF8; color: #913EF8; }
+        .filtro-btn.roxa.ativo { background: #913EF8; color: #fff; }
+        .filtro-btn.rosa { border-color: #FF2D95; color: #FF2D95; }
+        .filtro-btn.rosa.ativo { background: #FF2D95; color: #fff; }
+
+        .contagem-filtro {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* Histórico */
+        .historico-container {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .historico-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 6px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .historico-grid::-webkit-scrollbar { width: 4px; }
+        .historico-grid::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        .vela-historico {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #12121e;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .vela-historico:hover { transform: scale(1.05); }
+        .vela-historico .mult-h {
+            font-weight: 800;
+            font-size: 13px;
+        }
+        .vela-historico .rodada-h {
+            font-size: 9px;
+            color: #666;
+        }
+        .vela-historico .soma-h {
+            font-size: 10px;
+            font-weight: 700;
+            margin-top: 2px;
+            opacity: 0.7;
+        }
+        .vela-historico.selecionada {
+            outline: 2px solid rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-card .numero {
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .stat-card .rotulo {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-card.azul .numero { color: #349CFF; }
+        .stat-card.roxa .numero { color: #913EF8; }
+        .stat-card.rosa .numero { color: #FF2D95; }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .ultimas-live { flex-direction: column; }
+            .chart-container { height: 250px; }
+            .stats-bar { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+            .stat-card .numero { font-size: 16px; }
+            .catalogo-grid { grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); }
+            .vela-mini .mult { font-size: 10px; }
+            .header-logo h1 { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <h1>✈️ PAINEL AVIATOR</h1>
+        </div>
+        <div class="header-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Conectando...</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Stats -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-card azul">
+                <div class="numero" id="statAzul">0%</div>
+                <div class="rotulo">Azul (1.00-1.99x)</div>
+            </div>
+            <div class="stat-card roxa">
+                <div class="numero" id="statRoxa">0%</div>
+                <div class="rotulo">Roxa (2.00-9.99x)</div>
+            </div>
+            <div class="stat-card rosa">
+                <div class="numero" id="statRosa">0%</div>
+                <div class="rotulo">Rosa (10.00x+)</div>
+            </div>
+        </div>
+
+        <!-- Últimas Rodadas (Ao Vivo) -->
+        <div class="ultimas-live">
+            <div class="vela-card" id="ultimaVela">
+                <div class="label">🔴 AO VIVO - ÚLTIMA</div>
+                <div class="rodada-num" id="ultimaRodada">Aguardando...</div>
+                <div class="multiplicador" id="ultimaMult" style="color: #555;">---</div>
+                <div class="soma">Soma: <span id="ultimaSoma">-</span></div>
+            </div>
+            <div class="vela-card penultima" id="penultimaVela">
+                <div class="label">⬇️ PENÚLTIMA</div>
+                <div class="rodada-num" id="penultimaRodada">Aguardando...</div>
+                <div class="multiplicador" id="penultimaMult" style="color: #555;">---</div>
+                <div class="soma">Soma: <span id="penultimaSoma">-</span></div>
+            </div>
+        </div>
+
+        <!-- Gráfico -->
+        <div class="chart-container">
+            <canvas id="aviatorChart"></canvas>
+        </div>
+
+        <!-- Catálogo de Velas -->
+        <div class="catalogo-container">
+            <div class="catalogo-header">
+                <h2>📊 Catálogo de Velas</h2>
+                <span style="font-size: 12px; color: #666;" id="totalCatalogo">0 velas</span>
+            </div>
+            <div class="catalogo-grid" id="catalogoGrid"></div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filtros-container">
+            <div class="filtros-botoes">
+                <button class="filtro-btn todas ativo" data-filtro="todas" onclick="filtrar('todas')">🔵 Todas</button>
+                <button class="filtro-btn azul" data-filtro="azul" onclick="filtrar('azul')">🔵 Azuis</button>
+                <button class="filtro-btn roxa" data-filtro="roxa" onclick="filtrar('roxa')">🟣 Roxas</button>
+                <button class="filtro-btn rosa" data-filtro="rosa" onclick="filtrar('rosa')">🩷 Rosas</button>
+            </div>
+            <div class="contagem-filtro">
+                <span id="contagemHistorico">0 velas carregadas</span>
+            </div>
+        </div>
+
+        <!-- Histórico -->
+        <div class="historico-container">
+            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">📜 Histórico</h2>
+            <div class="historico-grid" id="historicoGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIG =====
+        const CORES = {
+            azul: { min: 1.00, max: 1.99, hex: '#349CFF', rgb: 'rgb(52, 156, 255)' },
+            roxa: { min: 2.00, max: 9.99, hex: '#913EF8', rgb: 'rgb(145, 62, 248)' },
+            rosa: { min: 10.00, max: 9999, hex: '#FF2D95', rgb: 'rgb(255, 45, 149)' }
+        };
+
+        // ===== ESTADO =====
+        let todasVelas = [];
+        let filtroAtivo = 'todas';
+        let historicoCompleto = [];
+
+        // ===== SOCKET =====
+        const socket = io({
+            transports: ['websocket', 'polling']
+        });
+
+        socket.on('connect', () => {
+            document.getElementById('statusDot').className = 'status-dot';
+            document.getElementById('statusText').textContent = '🟢 Conectado';
+            console.log('[SOCKET] Conectado');
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('statusDot').className = 'status-dot disconnected';
+            document.getElementById('statusText').textContent = '🔴 Desconectado';
+        });
+
+        socket.on('ultima_rodada', (dados) => {
+            atualizarUltimaVela(dados);
+        });
+
+        socket.on('penultima_rodada', (dados) => {
+            atualizarPenultimaVela(dados);
+        });
+
+        socket.on('nova_rodada', (dados) => {
+            adicionarVela(dados);
+            atualizarUltimaVela(dados);
+            atualizarGrafico();
+        });
+
+        socket.on('atualizar_ultimas', (dados) => {
+            if (dados.length >= 2) {
+                atualizarUltimaVela(dados[dados.length - 1]);
+                atualizarPenultimaVela(dados[dados.length - 2]);
+            }
+        });
+
+        socket.on('historico', (dados) => {
+            todasVelas = dados;
+            renderizarCatalogo(dados);
+            renderizarHistorico(dados);
+            atualizarStats(dados);
+        });
+
+        socket.on('historico_completo', (dados) => {
+            historicoCompleto = dados;
+            todasVelas = dados;
+            renderizarCatalogo(dados);
+            renderizarHistoricoFiltrado();
+            atualizarStats(dados);
+            document.getElementById('totalCatalogo').textContent = dados.length + ' velas';
+            document.getElementById('contagemHistorico').textContent = dados.length + ' velas carregadas';
+            console.log('[HISTÓRICO] Carregadas ' + dados.length + ' velas');
+        });
+
+        socket.on('estatisticas', (stats) => {
+            if (stats.porcentagens) {
+                document.getElementById('statAzul').textContent = stats.porcentagens.azul + '%';
+                document.getElementById('statRoxa').textContent = stats.porcentagens.roxa + '%';
+                document.getElementById('statRosa').textContent = stats.porcentagens.rosa + '%';
+            }
+            if (stats.total) {
+                document.getElementById('totalCatalogo').textContent = stats.total + ' velas';
+            }
+        });
+
+        // ===== FUNÇÕES =====
+        function classificarCor(mult) {
+            if (mult >= 1.00 && mult <= 1.99) return 'azul';
+            if (mult >= 2.00 && mult <= 9.99) return 'roxa';
+            return 'rosa';
+        }
+
+        function calcularSoma(mult) {
+            const s = mult.toFixed(2);
+            let soma = 0;
+            for (const c of s) {
+                if (c >= '0' && c <= '9') soma += parseInt(c);
+            }
+            return soma;
+        }
+
+        function atualizarUltimaVela(dados) {
+            const cor = classificarCor(dados.multiplicador);
+            const hex = CORES[cor].hex;
+            document.getElementById('ultimaRodada').textContent = 'Rodada ' + dados.rodada;
+            document.getElementById('ultimaMult').textContent = dados.exibicao;
+            document.getElementById('ultimaMult').style.color = hex;
+            document.getElementById('ultimaSoma').textContent = dados.soma || calcularSoma(dados.multiplicador);
+        }
+
+        function atualizarPenultimaVela(dados) {
+            const cor = classificarCor(dados.multiplicador);
+            const hex = CORES[cor].hex;
+            document.getElementById('penultimaRodada').textContent = 'Rodada ' + dados.rodada;
+            document.getElementById('penultimaMult').textContent = dados.exibicao;
+            document.getElementById('penultimaMult').style.color = hex;
+            document.getElementById('penultimaSoma').textContent = dados.soma || calcularSoma(dados.multiplicador);
+        }
+
+        function adicionarVela(dados) {
+            todasVelas.push(dados);
+            renderizarCatalogo(todasVelas);
+            renderizarHistoricoFiltrado();
+            atualizarStats(todasVelas);
+            document.getElementById('totalCatalogo').textContent = todasVelas.length + ' velas';
+        }
+
+        function renderizarCatalogo(velas) {
+            const grid = document.getElementById('catalogoGrid');
+            const ultimas20 = velas.slice(-20);
+            grid.innerHTML = ultimas20.map(v => {
+                const cor = classificarCor(v.multiplicador);
+                const hex = CORES[cor].hex;
+                const soma = v.soma || calcularSoma(v.multiplicador);
+                return `<div class="vela-mini" style="border-color: ${hex}40;">
+                    <span class="mult" style="color: ${hex}">${v.exibicao}</span>
+                    <span class="rodada">#${v.rodada}</span>
+                    <span class="soma-tag" style="color: ${hex}80">+${soma}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderizarHistorico(velas) {
+            renderizarHistoricoFiltrado();
+        }
+
+        function renderizarHistoricoFiltrado() {
+            const grid = document.getElementById('historicoGrid');
+            let velasFiltradas = [];
+
+            if (filtroAtivo === 'todas') {
+                velasFiltradas = [...todasVelas];
+            } else {
+                velasFiltradas = todasVelas.filter(v => classificarCor(v.multiplicador) === filtroAtivo);
+            }
+
+            // Mostra as mais recentes primeiro
+            velasFiltradas = velasFiltradas.reverse();
+
+            grid.innerHTML = velasFiltradas.map(v => {
+                const cor = classificarCor(v.multiplicador);
+                const hex = CORES[cor].hex;
+                const soma = v.soma || calcularSoma(v.multiplicador);
+                return `<div class="vela-historico" style="border-color: ${hex}40;" onclick="selecionarVela(this, '${cor}')">
+                    <span class="mult-h" style="color: ${hex}">${v.exibicao}</span>
+                    <span class="rodada-h">#${v.rodada}</span>
+                    <span class="soma-h" style="color: ${hex}">Soma: ${soma}</span>
+                </div>`;
+            }).join('');
+
+            document.getElementById('contagemHistorico').textContent =
+                velasFiltradas.length + ' velas ' + (filtroAtivo !== 'todas' ? `(${filtroAtivo})` : '(todas)');
+        }
+
+        function selecionarVela(el, cor) {
+            // Seleciona todas as velas da mesma cor
+            const todasVelasEl = document.querySelectorAll('.vela-historico');
+            todasVelasEl.forEach(v => v.classList.remove('selecionada'));
+
+            const mesmaCor = document.querySelectorAll(`.vela-historico`);
+            mesmaCor.forEach(v => {
+                const corVela = classificarCor(parseFloat(v.querySelector('.mult-h').textContent));
+                if (corVela === cor) {
+                    v.classList.add('selecionada');
+                }
+            });
+        }
+
+        function filtrar(filtro) {
+            filtroAtivo = filtro;
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
+            document.querySelector(`.filtro-btn.${filtro}`).classList.add('ativo');
+            renderizarHistoricoFiltrado();
+
+            // Se clicou numa cor, solicita histórico específico
+            if (filtro !== 'todas') {
+                socket.emit('solicitar_historico', { cor: filtro });
+            }
+        }
+
+        function atualizarStats(velas) {
+            let azul = 0, roxa = 0, rosa = 0;
+            velas.forEach(v => {
+                const cor = classificarCor(v.multiplicador);
+                if (cor === 'azul') azul++;
+                else if (cor === 'roxa') roxa++;
+                else rosa++;
+            });
+            const total = velas.length || 1;
+            document.getElementById('statAzul').textContent = (azul / total * 100).toFixed(1) + '%';
+            document.getElementById('statRoxa').textContent = (roxa / total * 100).toFixed(1) + '%';
+            document.getElementById('statRosa').textContent = (rosa / total * 100).toFixed(1) + '%';
+        }
+
+        // ===== GRÁFICO =====
+        let chart = null;
+
+        function criarGrafico() {
+            const ctx = document.getElementById('aviatorChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Multiplicador',
+                        data: [],
+                        borderColor: '#913EF8',
+                        backgroundColor: 'rgba(145, 62, 248, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#913EF8',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#666', maxTicksLimit: 10, font: { size: 10 } },
+                            grid: { color: 'rgba(255,255,255,0.03)' }
+                        },
+                        y: {
+                            ticks: { color: '#666', font: { size: 10 } },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGrafico() {
+            if (!chart) return;
+            const ultimas30 = todasVelas.slice(-30);
+            chart.data.labels = ultimas30.map(v => v.rodada.toString().slice(-4));
+            chart.data.datasets[0].data = ultimas30.map(v => v.multiplicador);
+
+            // Pinta os pontos por cor
+            chart.data.datasets[0].pointBackgroundColor = ultimas30.map(v => {
+                const cor = classificarCor(v.multiplicador);
+                return CORES[cor].hex;
+            });
+
+            chart.update('none');
+        }
+
+        // ===== INICIALIZAÇÃO =====
+        document.addEventListener('DOMContentLoaded', () => {
+            criarGrafico();
+            // Solicita histórico completo
+            setTimeout(() => {
+                socket.emit('solicitar_tudo');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
