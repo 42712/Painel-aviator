@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status - Painel Aviator</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0F0F1A; color: #fff; padding: 40px; }
+        .card { background: #1a1a2e; border-radius: 16px; padding: 30px; max-width: 600px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.05); }
+        h1 { font-size: 24px; margin-bottom: 20px; }
+        .status-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .status-item:last-child { border-bottom: none; }
+        .label { color: #888; }
+        .value { font-weight: 700; }
+        .ok { color: #00ff88; }
+        a { color: #349CFF; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>📊 Status do Painel Aviator</h1>
+        <div class="status-item">
+            <span class="label">Servidor</span>
+            <span class="value ok">✅ Online</span>
+        </div>
+        <div class="status-item">
+            <span class="label">Porta</span>
+            <span class="value" id="porta">5000</span>
+        </div>
+        <div class="status-item">
+            <span class="label">Histórico</span>
+            <span class="value" id="totalRodadas">Carregando...</span>
+        </div>
+        <div class="status-item">
+            <span class="label">Painel</span>
+            <span class="value"><a href="/">Abrir Painel</a></span>
+        </div>
+    </div>
+    <script>
+        fetch('/api/estatisticas')
+            .then(r => r.json())
+            .then(d => { document.getElementById('totalRodadas').textContent = d.total + ' rodadas'; })
+            .catch(() => { document.getElementById('totalRodadas').textContent = 'Erro ao carregar'; });
+    </script>
+</body>
+</html>
