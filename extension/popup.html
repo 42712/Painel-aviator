@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Aviator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0F0F1A;
+            color: #fff;
+            width: 350px;
+            padding: 15px;
+        }
+        h1 {
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #349CFF, #913EF8, #FF2D95);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus { border-color: #913EF8; }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+        .info {
+            margin-top: 12px;
+            padding: 10px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+        .info a { color: #349CFF; text-decoration: none; }
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: center;
+            color: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <h1>✈️ PAINEL AVIATOR</h1>
+    <div class="input-group">
+        <label>URL do Servidor</label>
+        <input type="url" id="serverUrl" placeholder="https://seu-app.onrender.com">
+    </div>
+    <button class="btn" onclick="abrirPainel()">🚀 ABRIR PAINEL</button>
+    <div class="status" id="status"></div>
+    <div class="info">
+        Configure a URL do Render depois do deploy.<br>
+        Ex: https://painel-aviator.onrender.com
+    </div>
+    <script>
+        // Carrega URL salva
+        if (localStorage.getItem('serverUrl')) {
+            document.getElementById('serverUrl').value = localStorage.getItem('serverUrl');
+        }
+
+        function abrirPainel() {
+            const url = document.getElementById('serverUrl').value.trim();
+            if (!url) {
+                document.getElementById('status').textContent = '⚠️ Digite a URL do servidor';
+                document.getElementById('status').style.color = '#ff4444';
+                return;
+            }
+            localStorage.setItem('serverUrl', url);
+            document.getElementById('status').textContent = '✅ Abrindo painel...';
+            document.getElementById('status').style.color = '#00ff88';
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>
