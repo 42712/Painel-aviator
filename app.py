@@ -4,9 +4,10 @@ import sys, os
 backend = os.path.join(os.path.dirname(__file__), 'backend')
 sys.path.insert(0, backend)
 
-from server import app, collector
+from server import app, collector1, collector2
 
-collector.iniciar()
+collector1.iniciar()
+collector2.iniciar()
 print("OK", flush=True)
 
 if __name__ == '__main__':

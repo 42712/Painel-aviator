@@ -181,6 +181,10 @@
                         <label>Observação</label>
                         <input type="text" name="observacao" placeholder="pagou, não pagou, etc">
                     </div>
+                    <div class="form-group">
+                        <label>Slug (link personalizado)</label>
+                        <input type="text" name="slug" placeholder="meu-cliente">
+                    </div>
                     <div class="form-group" style="display:flex;align-items:flex-end;">
                         <button type="submit" class="btn">✅ CRIAR</button>
                     </div>
@@ -199,6 +203,7 @@
                         <th>Status</th>
                         <th>Online</th>
                         <th>Link Painel</th>
+                        <th>Slug</th>
                         <th>Observação</th>
                         <th>Ações</th>
                     </tr>
@@ -225,14 +230,15 @@
                         </td>
                         <td>
                             {% if not c.bloqueado %}
-                            <a href="/painel/{{ c.token }}" target="_blank" class="link-url">🔗 Abrir</a>
+                            <a href="/painel/{{ c.slug or c.token }}" target="_blank" class="link-url">🔗 {% if c.slug %}{{ c.slug }}{% else %}Abrir{% endif %}</a>
                             {% else %}
                             <span style="color:#555;">---</span>
                             {% endif %}
                         </td>
+                        <td><span style="color:#666;">{{ c.slug or '-' }}</span></td>
                         <td><span class="obs">{{ c.observacao or '-' }}</span></td>
                         <td style="display:flex;gap:5px;flex-wrap:wrap;">
-                            <button class="btn-editar" onclick="editar({{ c.id }}, '{{ c.login }}', '{{ c.nome }}', '{{ c.observacao }}', {{ c.tempo_acesso }})">✏️</button>
+                            <button class="btn-editar" onclick="editar({{ c.id }}, '{{ c.login }}', '{{ c.nome }}', '{{ c.observacao }}', {{ c.tempo_acesso }}, '{{ c.slug or '' }}')">✏️</button>
                             {% if c.bloqueado %}
                             <form method="POST" action="/admin/clientes/{{ c.id }}/bloquear" style="display:inline;">
                                 <button type="submit" class="btn-editar btn-unblock">🔓</button>
@@ -278,18 +284,23 @@
                     <label>Tempo de Acesso (minutos, 0 = ilimitado)</label>
                     <input type="number" name="tempo_acesso" id="editarTempo" min="0">
                 </div>
+                <div class="form-group">
+                    <label>Slug (link personalizado)</label>
+                    <input type="text" name="slug" id="editarSlug" placeholder="meu-cliente">
+                </div>
                 <button type="submit" class="btn" style="width:100%;margin-top:10px;">💾 SALVAR</button>
             </form>
         </div>
     </div>
 
     <script>
-        function editar(id, login, nome, obs, tempo) {
+        function editar(id, login, nome, obs, tempo, slug) {
             document.getElementById('formEditar').action = '/admin/clientes/' + id + '/editar';
             document.getElementById('editarLogin').value = login;
             document.getElementById('editarNome').value = nome;
             document.getElementById('editarObs').value = obs;
             document.getElementById('editarTempo').value = tempo;
+            document.getElementById('editarSlug').value = slug || '';
             document.getElementById('modalEditar').style.display = 'flex';
         }
         function fecharModal() {

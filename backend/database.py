@@ -51,6 +51,12 @@ def init_db():
         cursor.execute("INSERT INTO master (email, senha_hash) VALUES (?, ?)",
                      ("marcosduarte356@gmail.com", hash_senha))
 
+    # Adiciona coluna slug se não existir (migração)
+    try:
+        cursor.execute("ALTER TABLE clientes ADD COLUMN slug TEXT UNIQUE DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Coluna já existe
+
     conn.commit()
     conn.close()
 
@@ -66,18 +72,25 @@ def verificar_master(email, senha):
 
 
 # ===== CLIENTES =====
-def criar_cliente(login, senha, nome="", observacao="", tempo_acesso=0):
+def criar_cliente(login, senha, nome="", observacao="", tempo_acesso=0, slug=None):
     import uuid
     conn = get_db()
     token = str(uuid.uuid4())
     hash_senha = generate_password_hash(senha)
     try:
-        conn.execute("""INSERT INTO clientes (token, login, senha_hash, nome, observacao, tempo_acesso)
-                        VALUES (?, ?, ?, ?, ?, ?)""",
-                   (token, login, hash_senha, nome, observacao, tempo_acesso))
+        if slug:
+            conn.execute("""INSERT INTO clientes (token, login, senha_hash, nome, observacao, tempo_acesso, slug)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                       (token, login, hash_senha, nome, observacao, tempo_acesso, slug))
+        else:
+            conn.execute("""INSERT INTO clientes (token, login, senha_hash, nome, observacao, tempo_acesso)
+                            VALUES (?, ?, ?, ?, ?, ?)""",
+                       (token, login, hash_senha, nome, observacao, tempo_acesso))
         conn.commit()
-        return {"ok": True, "token": token}
-    except sqlite3.IntegrityError:
+        return {"ok": True, "token": token, "slug": slug}
+    except sqlite3.IntegrityError as e:
+        if "slug" in str(e):
+            return {"ok": False, "erro": "Slug já está em uso"}
         return {"ok": False, "erro": "Login já existe"}
     finally:
         conn.close()
@@ -104,6 +117,27 @@ def get_cliente_por_token(token):
     row = conn.execute("SELECT * FROM clientes WHERE token = ?", (token,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def get_cliente_por_slug(slug):
+    """Busca cliente por slug (link personalizado)"""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM clientes WHERE slug = ?", (slug,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def atualizar_slug(cliente_id, slug):
+    """Atualiza slug de um cliente"""
+    conn = get_db()
+    try:
+        conn.execute("UPDATE clientes SET slug = ? WHERE id = ?", (slug, cliente_id))
+        conn.commit()
+        conn.close()
+        return {"ok": True}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"ok": False, "erro": "Slug já está em uso"}
 
 
 def get_cliente_por_login(login):
@@ -141,7 +175,7 @@ def editar_cliente(cliente_id, dados):
     conn = get_db()
     updates = []
     valores = []
-    for campo in ['login', 'nome', 'observacao', 'tempo_acesso']:
+    for campo in ['login', 'nome', 'observacao', 'tempo_acesso', 'slug']:
         if campo in dados:
             updates.append(f"{campo} = ?")
             valores.append(dados[campo])
@@ -150,10 +184,16 @@ def editar_cliente(cliente_id, dados):
         valores.append(generate_password_hash(dados['senha']))
     if updates:
         valores.append(cliente_id)
-        conn.execute(f"UPDATE clientes SET {', '.join(updates)} WHERE id = ?", valores)
-        conn.commit()
+        try:
+            conn.execute(f"UPDATE clientes SET {', '.join(updates)} WHERE id = ?", valores)
+            conn.commit()
+            conn.close()
+            return {"ok": True}
+        except sqlite3.IntegrityError:
+            conn.close()
+            return {"ok": False, "erro": "Slug já está em uso"}
     conn.close()
-    return True
+    return {"ok": True}
 
 
 def toggle_bloqueio(cliente_id):

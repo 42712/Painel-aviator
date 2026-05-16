@@ -7,7 +7,7 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 from flask_cors import CORS
 from data_collector import DataCollector
 from database import init_db, criar_cliente, listar_clientes, get_cliente_por_id
-from database import get_cliente_por_token, editar_cliente, toggle_bloqueio
+from database import get_cliente_por_token, get_cliente_por_slug, editar_cliente, toggle_bloqueio, atualizar_slug
 from database import atualizar_online, get_estatisticas, exportar_relatorio
 from auth import login_master, login_cliente, logout, master_required, cliente_required
 import config
@@ -22,7 +22,8 @@ app.config['SECRET_KEY'] = os.urandom(24).hex()
 app.config['SESSION_PERMANENT'] = True
 CORS(app, supports_credentials=True)
 
-collector = DataCollector()
+collector1 = DataCollector()
+collector2 = DataCollector()
 
 # Inicializa banco na importação
 init_db()
@@ -38,12 +39,18 @@ def notificar_clientes(evento, dados):
     if len(ultimos_eventos) > MAX_EVENTOS:
         ultimos_eventos = ultimos_eventos[-MAX_EVENTOS:]
 
-def on_nova_rodada(rodada):
+def on_nova_rodada_1(rodada):
     dados = rodada.to_dict()
-    notificar_clientes('nova_rodada', dados)
-    notificar_clientes('atualizar_ultimas', collector.get_ultimas(20))
+    notificar_clientes('nova_rodada_1', dados)
+    notificar_clientes('atualizar_ultimas_1', collector1.get_ultimas(20))
 
-collector.callback = on_nova_rodada
+def on_nova_rodada_2(rodada):
+    dados = rodada.to_dict()
+    notificar_clientes('nova_rodada_2', dados)
+    notificar_clientes('atualizar_ultimas_2', collector2.get_ultimas(20))
+
+collector1.callback = on_nova_rodada_1
+collector2.callback = on_nova_rodada_2
 
 @app.route('/api/stream')
 def stream_sse():
@@ -52,13 +59,21 @@ def stream_sse():
         ultimo_ts = time.time()
         # Envia estado inicial
         yield f"event: conectado\ndata: {json.dumps({'status': 'ok'})}\n\n"
-        if collector.ultima_rodada:
-            yield f"event: ultima_rodada\ndata: {json.dumps(collector.ultima_rodada.to_dict())}\n\n"
-        if collector.penultima_rodada:
-            yield f"event: penultima_rodada\ndata: {json.dumps(collector.penultima_rodada.to_dict())}\n\n"
-        yield f"event: historico\ndata: {json.dumps(collector.get_ultimas(50))}\n\n"
-        yield f"event: estatisticas\ndata: {json.dumps(collector.get_estatisticas())}\n\n"
-        yield f"event: extensao_status\ndata: {json.dumps({'conectada': EXTENSAO_CONECTADA and (time.time() - ultimo_heartbeat) < 60, 'total_rodadas': len(collector.historico)})}\n\n"
+        # Aviator 1
+        if collector1.ultima_rodada:
+            yield f"event: ultima_rodada_1\ndata: {json.dumps(collector1.ultima_rodada.to_dict())}\n\n"
+        if collector1.penultima_rodada:
+            yield f"event: penultima_rodada_1\ndata: {json.dumps(collector1.penultima_rodada.to_dict())}\n\n"
+        yield f"event: historico_1\ndata: {json.dumps(collector1.get_ultimas(50))}\n\n"
+        yield f"event: estatisticas_1\ndata: {json.dumps(collector1.get_estatisticas())}\n\n"
+        # Aviator 2
+        if collector2.ultima_rodada:
+            yield f"event: ultima_rodada_2\ndata: {json.dumps(collector2.ultima_rodada.to_dict())}\n\n"
+        if collector2.penultima_rodada:
+            yield f"event: penultima_rodada_2\ndata: {json.dumps(collector2.penultima_rodada.to_dict())}\n\n"
+        yield f"event: historico_2\ndata: {json.dumps(collector2.get_ultimas(50))}\n\n"
+        yield f"event: estatisticas_2\ndata: {json.dumps(collector2.get_estatisticas())}\n\n"
+        yield f"event: extensao_status\ndata: {json.dumps({'conectada': EXTENSAO_CONECTADA and (time.time() - ultimo_heartbeat) < 60, 'total_rodadas': len(collector1.historico) + len(collector2.historico)})}\n\n"
 
         while True:
             # Verifica novos eventos
@@ -100,8 +115,10 @@ def api_webhook():
             ultimo_heartbeat = time.time()
             return jsonify({"ok": True, "status": "heartbeat_recebido"})
 
-        # Processa rodadas recebidas
+        # Processa rodadas recebidas - roteia para aviator 1 ou 2
         rodadas = dados.get('rodadas', [])
+        aviador = dados.get('aviator', 1)
+        collector = collector1 if aviador == 1 else collector2
         fonte = dados.get('fonte', 'desconhecida')
         EXTENSAO_CONECTADA = True
         ultimo_heartbeat = time.time()
@@ -117,6 +134,7 @@ def api_webhook():
         return jsonify({
             "ok": True,
             "rodadas_recebidas": len(rodadas),
+            "aviator": aviador,
             "status": "extensao_conectada"
         })
     except Exception as e:
@@ -131,7 +149,9 @@ def api_webhook_status():
         "conectada": conectada,
         "ultimo_heartbeat": ultimo_heartbeat,
         "segundos_sem_sinal": int(agora - ultimo_heartbeat) if ultimo_heartbeat else 9999,
-        "total_rodadas": len(collector.historico)
+        "total_rodadas": len(collector1.historico) + len(collector2.historico),
+        "aviator1_rodadas": len(collector1.historico),
+        "aviator2_rodadas": len(collector2.historico)
     })
 
 # ===== PÁGINAS PÚBLICAS =====
@@ -177,7 +197,8 @@ def admin_criar_cliente():
     nome = request.form.get('nome', '')
     observacao = request.form.get('observacao', '')
     tempo = int(request.form.get('tempo_acesso', 0))
-    resultado = criar_cliente(login, senha, nome, observacao, tempo)
+    slug = request.form.get('slug', '').strip() or None
+    resultado = criar_cliente(login, senha, nome, observacao, tempo, slug)
     if resultado['ok']:
         return redirect('/admin/clientes')
     return render_template('admin/clientes.html', erro=resultado['erro'], clientes=listar_clientes())
@@ -203,6 +224,17 @@ def admin_editar_cliente(id):
 @master_required
 def admin_bloquear_cliente(id):
     toggle_bloqueio(id)
+    return redirect('/admin/clientes')
+
+@app.route('/admin/clientes/<int:id>/slug', methods=['POST'])
+@master_required
+def admin_alterar_slug(id):
+    slug = request.form.get('slug', '').strip()
+    if not slug:
+        slug = None
+    resultado = atualizar_slug(id, slug)
+    if not resultado['ok']:
+        return render_template('admin/clientes.html', erro=resultado['erro'], clientes=listar_clientes())
     return redirect('/admin/clientes')
 
 @app.route('/admin/clientes/<int:id>')
@@ -237,11 +269,15 @@ def admin_exportar_csv():
     )
 
 # ===== PAINEL DO CLIENTE =====
-@app.route('/painel/<token>')
-def cliente_login(token):
-    cliente = get_cliente_por_token(token)
+@app.route('/painel/<slug>')
+def cliente_login(slug):
+    # Tenta buscar por slug primeiro, fallback para token
+    cliente = get_cliente_por_slug(slug)
+    if not cliente:
+        cliente = get_cliente_por_token(slug)
     if not cliente:
         return "Link inválido", 404
+    token = cliente['token']
     if session.get('tipo') == 'cliente' and session.get('cliente_token') == token:
         return redirect(f'/painel/{token}/dash')
     return render_template('cliente/login.html', token=token, erro=None)
@@ -272,40 +308,104 @@ def cliente_sair(token):
     return redirect(f'/painel/{token}')
 
 # ===== API =====
+def _get_collector(n):
+    return collector1 if n == 1 else collector2
+
+@app.route('/api/<int:aviator>/ultimas/<int:n>')
+def api_ultimas_n(aviator, n):
+    return jsonify(_get_collector(aviator).get_ultimas(n))
+
 @app.route('/api/ultimas/<int:n>')
 def api_ultimas(n):
-    return jsonify(collector.get_ultimas(n))
+    return jsonify(collector1.get_ultimas(n))
 
 @app.route('/api/ultimas')
 def api_ultimas_default():
-    return jsonify(collector.get_ultimas(50))
+    return jsonify({"aviator1": collector1.get_ultimas(50), "aviator2": collector2.get_ultimas(50)})
+
+@app.route('/api/<int:aviator>/ultimas')
+def api_ultimas_aviator(aviator):
+    return jsonify(_get_collector(aviator).get_ultimas(50))
 
 @app.route('/api/historico')
 def api_historico():
-    return jsonify(collector.get_todas())
+    return jsonify({"aviator1": collector1.get_todas(), "aviator2": collector2.get_todas()})
 
-@app.route('/api/historico/<cor>')
-def api_historico_por_cor(cor):
+@app.route('/api/<int:aviator>/historico')
+def api_historico_aviator(aviator):
+    return jsonify(_get_collector(aviator).get_todas())
+
+@app.route('/api/<int:aviator>/historico/<cor>')
+def api_historico_por_cor(aviator, cor):
     cor = cor.lower()
     if cor not in ['azul', 'roxa', 'rosa']:
         return jsonify({"erro": "Cor inválida. Use: azul, roxa, rosa"}), 400
-    return jsonify(collector.get_por_cor(cor))
+    return jsonify(_get_collector(aviator).get_por_cor(cor))
+
+@app.route('/api/<int:aviator>/estatisticas')
+def api_estatisticas_aviator(aviator):
+    return jsonify(_get_collector(aviator).get_estatisticas())
 
 @app.route('/api/estatisticas')
 def api_estatisticas():
-    return jsonify(collector.get_estatisticas())
+    return jsonify({"aviator1": collector1.get_estatisticas(), "aviator2": collector2.get_estatisticas()})
+
+@app.route('/api/<int:aviator>/ultima')
+def api_ultima_aviator(aviator):
+    c = _get_collector(aviator)
+    if c.ultima_rodada:
+        return jsonify(c.ultima_rodada.to_dict())
+    return jsonify({"erro": "Nenhuma rodada ainda"}), 404
 
 @app.route('/api/ultima')
 def api_ultima():
-    if collector.ultima_rodada:
-        return jsonify(collector.ultima_rodada.to_dict())
+    return jsonify({
+        "aviator1": collector1.ultima_rodada.to_dict() if collector1.ultima_rodada else None,
+        "aviator2": collector2.ultima_rodada.to_dict() if collector2.ultima_rodada else None
+    })
+
+@app.route('/api/<int:aviator>/penultima')
+def api_penultima_aviator(aviator):
+    c = _get_collector(aviator)
+    if c.penultima_rodada:
+        return jsonify(c.penultima_rodada.to_dict())
     return jsonify({"erro": "Nenhuma rodada ainda"}), 404
 
 @app.route('/api/penultima')
 def api_penultima():
-    if collector.penultima_rodada:
-        return jsonify(collector.penultima_rodada.to_dict())
-    return jsonify({"erro": "Nenhuma rodada ainda"}), 404
+    return jsonify({
+        "aviator1": collector1.penultima_rodada.to_dict() if collector1.penultima_rodada else None,
+        "aviator2": collector2.penultima_rodada.to_dict() if collector2.penultima_rodada else None
+    })
+
+@app.route('/api/<int:aviator>/minutagem')
+def api_minutagem_aviator(aviator):
+    """Estatísticas agrupadas por minuto"""
+    c = _get_collector(aviator)
+    from collections import defaultdict
+    minutos = defaultdict(lambda: {"qtd": 0, "total": 0.0, "max": 0, "azul": 0, "roxa": 0, "rosa": 0})
+    for r in c.historico:
+        ts = r.timestamp or "00:00"
+        if ":" not in ts:
+            continue
+        minuto = ts[:5]  # HH:MM
+        m = minutos[minuto]
+        m["qtd"] += 1
+        m["total"] += r.multiplicador
+        m["max"] = max(m["max"], r.multiplicador)
+        m[r.cor] = m.get(r.cor, 0) + 1
+    resultado = []
+    for minuto, dados in sorted(minutos.items(), reverse=True)[:60]:
+        resultado.append({
+            "minuto": minuto,
+            "qtd": dados["qtd"],
+            "media": round(dados["total"] / dados["qtd"], 2) if dados["qtd"] > 0 else 0,
+            "max": round(dados["max"], 2),
+            "azul": dados["azul"],
+            "roxa": dados["roxa"],
+            "rosa": dados["rosa"]
+        })
+    return jsonify(resultado)
 
 @app.route('/status')
 def status_page():
@@ -316,6 +416,8 @@ if __name__ == '__main__':
     from waitress import serve
     print(f"[INICIANDO] Painel Aviator SaaS - Porta {config.PORT}")
     print(f"[MODO] {'Simulado' if config.SIMULAR_DADOS else 'Real (Sorte da Bet)'}")
-    collector.iniciar()
+    collector1.iniciar()
+    collector2.iniciar()
     print(f"[OK] Servidor rodando em http://{config.HOST}:{config.PORT}")
+    print(f"[OK] Aviator 1 + Aviator 2 ativos")
     serve(app, host=config.HOST, port=config.PORT)

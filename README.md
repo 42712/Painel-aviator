@@ -1,5 +1,13 @@
 # Painel Aviator
 
+
+ Seu login master do painel:
+
+https://painel-aviator.onrender.com/login
+
+  Email: marcosduarte356@gmail.com
+  Senha: amordedeus123@
+
 Painel em tempo real para o jogo Aviator com histórico de 15.000 velas.
 
 ## Deploy no Render

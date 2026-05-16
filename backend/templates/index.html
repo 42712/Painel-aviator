@@ -64,63 +64,92 @@
             padding: 15px;
         }
 
-        /* Últimas Rodadas (ao vivo) */
+        /* Aviator Tabs */
+        .aviator-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            background: #1a1a2e;
+            border-radius: 14px;
+            padding: 6px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .aviator-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: transparent;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .aviator-btn:hover { color: #aaa; background: rgba(255,255,255,0.03); }
+        .aviator-btn.ativo {
+            background: linear-gradient(135deg, rgba(52,156,255,0.2), rgba(145,62,248,0.2));
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .av-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .av-indicator.av-1 { background: #349CFF; }
+        .av-indicator.av-2 { background: #913EF8; }
+
+        /* Timer */
+        .timer-bar {
+            text-align: center;
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+            font-size: 14px;
+            color: #888;
+        }
+        .timer-bar .timer-num {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            display: inline-block;
+            min-width: 60px;
+        }
+        .timer-bar .timer-num.urgente { color: #FF2D55; animation: timerPulse 0.5s infinite; }
+        @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .timer-bar .timer-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; }
+
+        /* Últimas Rodadas */
         .ultimas-live {
             display: flex;
             gap: 15px;
             margin-bottom: 20px;
-            background: #1a1a2e;
-            border-radius: 16px;
-            padding: 15px;
-            border: 1px solid rgba(255,255,255,0.05);
         }
         .vela-card {
             flex: 1;
-            background: #12121e;
+            background: #1a1a2e;
             border-radius: 12px;
             padding: 15px;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.08);
             transition: all 0.3s;
         }
-        .vela-card .label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-        }
-        .vela-card .rodada-num {
-            font-size: 13px;
-            color: #888;
-            margin-bottom: 8px;
-        }
-        .vela-card .multiplicador {
-            font-size: 28px;
-            font-weight: 900;
-            margin-bottom: 8px;
-        }
-        .vela-card .soma {
-            font-size: 14px;
-            color: #aaa;
-        }
-        .vela-card .soma span {
-            display: inline-block;
-            background: rgba(255,255,255,0.08);
-            padding: 2px 10px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 16px;
-        }
-        .vela-card.penultima {
-            opacity: 0.7;
-            transform: scale(0.95);
-        }
-        .vela-card .vazio {
-            color: #444;
-            font-size: 14px;
-            padding: 20px 0;
-        }
+        .vela-card .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .vela-card .rodada-num { font-size: 13px; color: #888; margin-bottom: 8px; }
+        .vela-card .multiplicador { font-size: 32px; font-weight: 900; margin-bottom: 8px; }
+        .vela-card .soma { font-size: 14px; color: #aaa; }
+        .vela-card .soma span { display: inline-block; background: rgba(255,255,255,0.08); padding: 2px 10px; border-radius: 8px; font-weight: 700; font-size: 16px; }
+        .vela-card.penultima { opacity: 0.7; transform: scale(0.95); }
+        .vela-card .vazio { color: #444; font-size: 14px; padding: 20px 0; }
 
         /* Gráfico */
         .chart-container {
@@ -132,12 +161,9 @@
             height: 400px;
             position: relative;
         }
-        .chart-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
+        .chart-container canvas { width: 100% !important; height: 100% !important; }
 
-        /* Catálogo de Velas */
+        /* Catálogo */
         .catalogo-container {
             background: #1a1a2e;
             border-radius: 16px;
@@ -151,10 +177,7 @@
             align-items: center;
             margin-bottom: 15px;
         }
-        .catalogo-header h2 {
-            font-size: 18px;
-            font-weight: 700;
-        }
+        .catalogo-header h2 { font-size: 18px; font-weight: 700; }
         .catalogo-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
@@ -179,25 +202,16 @@
             border: 1px solid rgba(255,255,255,0.05);
         }
         .vela-mini:hover {
-            transform: scale(1.1);
-            z-index: 10;
-            border-color: rgba(255,255,255,0.2);
+            transform: scale(1.4) !important;
+            z-index: 20;
+            border-color: rgba(255,255,255,0.3);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         }
-        .vela-mini .mult {
-            font-weight: 800;
-            font-size: 12px;
-        }
-        .vela-mini .rodada {
-            font-size: 8px;
-            color: #666;
-        }
-        .vela-mini .soma-tag {
-            font-size: 9px;
-            font-weight: 700;
-            margin-top: 1px;
-        }
+        .vela-mini .mult { font-weight: 800; font-size: 12px; }
+        .vela-mini .rodada { font-size: 8px; color: #666; }
+        .vela-mini .soma-tag { font-size: 9px; font-weight: 700; margin-top: 1px; }
 
-        /* Filtros do Histórico */
+        /* Filtros */
         .filtros-container {
             background: #1a1a2e;
             border-radius: 16px;
@@ -205,11 +219,7 @@
             margin-bottom: 20px;
             border: 1px solid rgba(255,255,255,0.05);
         }
-        .filtros-botoes {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+        .filtros-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
         .filtro-btn {
             padding: 10px 24px;
             border: 2px solid transparent;
@@ -223,10 +233,7 @@
             color: #888;
         }
         .filtro-btn:hover { transform: translateY(-2px); }
-        .filtro-btn.ativo {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+        .filtro-btn.ativo { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .filtro-btn.todas { border-color: #555; color: #fff; }
         .filtro-btn.todas.ativo { background: #555; }
         .filtro-btn.azul { border-color: #349CFF; color: #349CFF; }
@@ -235,12 +242,7 @@
         .filtro-btn.roxa.ativo { background: #913EF8; color: #fff; }
         .filtro-btn.rosa { border-color: #FF2D95; color: #FF2D95; }
         .filtro-btn.rosa.ativo { background: #FF2D95; color: #fff; }
-
-        .contagem-filtro {
-            margin-top: 12px;
-            font-size: 13px;
-            color: #666;
-        }
+        .contagem-filtro { margin-top: 12px; font-size: 13px; color: #666; }
 
         /* Histórico */
         .historico-container {
@@ -249,6 +251,7 @@
             padding: 20px;
             border: 1px solid rgba(255,255,255,0.05);
         }
+        .historico-container h2 { font-size: 18px; font-weight: 700; margin-bottom: 15px; }
         .historico-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -271,21 +274,15 @@
             background: #12121e;
             border: 1px solid rgba(255,255,255,0.05);
         }
-        .vela-historico:hover { transform: scale(1.05); }
-        .vela-historico .mult-h {
-            font-weight: 800;
-            font-size: 13px;
+        .vela-historico:hover {
+            transform: scale(1.2) !important;
+            z-index: 20;
+            border-color: rgba(255,255,255,0.3);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         }
-        .vela-historico .rodada-h {
-            font-size: 9px;
-            color: #666;
-        }
-        .vela-historico .soma-h {
-            font-size: 10px;
-            font-weight: 700;
-            margin-top: 2px;
-            opacity: 0.7;
-        }
+        .vela-historico .mult-h { font-weight: 800; font-size: 13px; }
+        .vela-historico .rodada-h { font-size: 9px; color: #666; }
+        .vela-historico .soma-h { font-size: 10px; font-weight: 700; margin-top: 2px; opacity: 0.7; }
         .vela-historico.selecionada {
             outline: 2px solid rgba(255,255,255,0.3);
             transform: scale(1.05);
@@ -305,19 +302,36 @@
             text-align: center;
             border: 1px solid rgba(255,255,255,0.05);
         }
-        .stat-card .numero {
-            font-size: 22px;
-            font-weight: 800;
-        }
-        .stat-card .rotulo {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+        .stat-card .numero { font-size: 22px; font-weight: 800; }
+        .stat-card .rotulo { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
         .stat-card.azul .numero { color: #349CFF; }
         .stat-card.roxa .numero { color: #913EF8; }
         .stat-card.rosa .numero { color: #FF2D95; }
+
+        /* Avião Scroll-to-Top */
+        #scrollTopBtn {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(145,62,248,0.4);
+            transition: all 0.3s;
+        }
+        #scrollTopBtn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(145,62,248,0.6);
+        }
 
         /* Responsivo */
         @media (max-width: 768px) {
@@ -328,6 +342,8 @@
             .catalogo-grid { grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); }
             .vela-mini .mult { font-size: 10px; }
             .header-logo h1 { font-size: 16px; }
+            .aviator-btn { font-size: 12px; padding: 10px 12px; }
+            #scrollTopBtn { width: 42px; height: 42px; font-size: 20px; bottom: 15px; left: 15px; }
         }
     </style>
 </head>
@@ -344,6 +360,22 @@
     </div>
 
     <div class="main-container">
+        <!-- Aviator Tabs -->
+        <div class="aviator-tabs">
+            <button class="aviator-btn ativo" data-aviator="1" onclick="selecionarAviator(1)">
+                <span class="av-indicator av-1"></span> Aviator 1
+            </button>
+            <button class="aviator-btn" data-aviator="2" onclick="selecionarAviator(2)">
+                <span class="av-indicator av-2"></span> Aviator 2
+            </button>
+        </div>
+
+        <!-- Timer -->
+        <div class="timer-bar">
+            <div class="timer-label">⏱ PRÓXIMA RODADA</div>
+            <span class="timer-num" id="timerTexto">--</span>
+        </div>
+
         <!-- Stats -->
         <div class="stats-bar" id="statsBar">
             <div class="stat-card azul">
@@ -360,7 +392,7 @@
             </div>
         </div>
 
-        <!-- Últimas Rodadas (Ao Vivo) -->
+        <!-- Últimas Rodadas -->
         <div class="ultimas-live">
             <div class="vela-card" id="ultimaVela">
                 <div class="label">🔴 AO VIVO - ÚLTIMA</div>
@@ -376,12 +408,17 @@
             </div>
         </div>
 
-        <!-- Gráfico -->
-        <div class="chart-container">
-            <canvas id="aviatorChart"></canvas>
+        <!-- Gráfico Aviator 1 -->
+        <div class="chart-container" id="chartContainer1">
+            <canvas id="aviatorChart1"></canvas>
         </div>
 
-        <!-- Catálogo de Velas -->
+        <!-- Gráfico Aviator 2 -->
+        <div class="chart-container" id="chartContainer2" style="display:none;">
+            <canvas id="aviatorChart2"></canvas>
+        </div>
+
+        <!-- Catálogo -->
         <div class="catalogo-container">
             <div class="catalogo-header">
                 <h2>📊 Catálogo de Velas</h2>
@@ -393,10 +430,10 @@
         <!-- Filtros -->
         <div class="filtros-container">
             <div class="filtros-botoes">
-                <button class="filtro-btn todas ativo" data-filtro="todas" onclick="filtrar('todas')">🔵 Todas</button>
-                <button class="filtro-btn azul" data-filtro="azul" onclick="filtrar('azul')">🔵 Azuis</button>
-                <button class="filtro-btn roxa" data-filtro="roxa" onclick="filtrar('roxa')">🟣 Roxas</button>
-                <button class="filtro-btn rosa" data-filtro="rosa" onclick="filtrar('rosa')">🩷 Rosas</button>
+                <button class="filtro-btn todas ativo" onclick="filtrar('todas')">🔵 Todas</button>
+                <button class="filtro-btn azul" onclick="filtrar('azul')">🔵 Azuis</button>
+                <button class="filtro-btn roxa" onclick="filtrar('roxa')">🟣 Roxas</button>
+                <button class="filtro-btn rosa" onclick="filtrar('rosa')">🩷 Rosas</button>
             </div>
             <div class="contagem-filtro">
                 <span id="contagemHistorico">0 velas carregadas</span>
@@ -405,10 +442,13 @@
 
         <!-- Histórico -->
         <div class="historico-container">
-            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">📜 Histórico</h2>
+            <h2>📜 Histórico</h2>
             <div class="historico-grid" id="historicoGrid"></div>
         </div>
     </div>
+
+    <!-- Avião Scroll-to-Top -->
+    <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">✈️</button>
 
     <script>
         // ===== CONFIG =====
@@ -419,90 +459,19 @@
         };
 
         // ===== ESTADO =====
-        let todasVelas = [];
+        let todasVelas1 = [];
+        let todasVelas2 = [];
         let filtroAtivo = 'todas';
-        let historicoCompleto = [];
+        let aviatorAtivo = 1;
+        let chart1 = null;
+        let chart2 = null;
+        let ultimoTimestamp1 = Date.now();
+        let ultimoTimestamp2 = Date.now();
 
-        // ===== SSE (Server-Sent Events) =====
-        const evtSource = new EventSource('/api/stream');
+        // ===== HELPERS =====
+        function getVelasAtivas() { return aviatorAtivo === 1 ? todasVelas1 : todasVelas2; }
+        function getChartAtivo() { return aviatorAtivo === 1 ? chart1 : chart2; }
 
-        evtSource.addEventListener('conectado', () => {
-            document.getElementById('statusDot').className = 'status-dot';
-            document.getElementById('statusText').textContent = '🟢 Conectado';
-        });
-
-        evtSource.addEventListener('ultima_rodada', (e) => {
-            atualizarUltimaVela(JSON.parse(e.data));
-        });
-
-        evtSource.addEventListener('penultima_rodada', (e) => {
-            atualizarPenultimaVela(JSON.parse(e.data));
-        });
-
-        evtSource.addEventListener('nova_rodada', (e) => {
-            const dados = JSON.parse(e.data);
-            adicionarVela(dados);
-            atualizarUltimaVela(dados);
-            atualizarGrafico();
-        });
-
-        evtSource.addEventListener('atualizar_ultimas', (e) => {
-            const dados = JSON.parse(e.data);
-            if (dados.length >= 2) {
-                atualizarUltimaVela(dados[dados.length - 1]);
-                atualizarPenultimaVela(dados[dados.length - 2]);
-            }
-        });
-
-        evtSource.addEventListener('historico', (e) => {
-            const dados = JSON.parse(e.data);
-            todasVelas = dados;
-            renderizarCatalogo(dados);
-            renderizarHistorico(dados);
-            atualizarStats(dados);
-        });
-
-        evtSource.addEventListener('historico_completo', () => {
-            fetch('/api/historico').then(r => r.json()).then(dados => {
-                todasVelas = dados;
-                renderizarCatalogo(dados);
-                renderizarHistoricoFiltrado();
-                atualizarStats(dados);
-                document.getElementById('totalCatalogo').textContent = dados.length + ' velas';
-                document.getElementById('contagemHistorico').textContent = dados.length + ' velas carregadas';
-            });
-        });
-
-        evtSource.addEventListener('estatisticas', (e) => {
-            const stats = JSON.parse(e.data);
-            if (stats.porcentagens) {
-                document.getElementById('statAzul').textContent = stats.porcentagens.azul + '%';
-                document.getElementById('statRoxa').textContent = stats.porcentagens.roxa + '%';
-                document.getElementById('statRosa').textContent = stats.porcentagens.rosa + '%';
-            }
-            if (stats.total) {
-                document.getElementById('totalCatalogo').textContent = stats.total + ' velas';
-            }
-        });
-
-        evtSource.addEventListener('extensao_status', (e) => {
-            const st = JSON.parse(e.data);
-            const el = document.getElementById('extensaoStatus');
-            if (!el) return;
-            if (st.conectada) {
-                el.innerHTML = '📱 Extensão: <span style="color:#00e676">Conectada</span>';
-                el.title = 'Celular enviando dados em tempo real';
-            } else {
-                el.innerHTML = '📱 Extensão: <span style="color:#ff5252">Offline</span>';
-            }
-        });
-
-        evtSource.onerror = () => {
-            document.getElementById('statusDot').className = 'status-dot disconnected';
-            document.getElementById('statusText').textContent = '🔴 Desconectado';
-        };
-
-        // ===== FUNÇÕES =====
         function classificarCor(mult) {
             if (mult >= 1.00 && mult <= 1.99) return 'azul';
             if (mult >= 2.00 && mult <= 9.99) return 'roxa';
@@ -518,106 +487,123 @@
             return soma;
         }
 
-        function atualizarUltimaVela(dados) {
-            const cor = classificarCor(dados.multiplicador);
-            const hex = CORES[cor].hex;
-            document.getElementById('ultimaRodada').textContent = 'Rodada ' + dados.rodada;
-            document.getElementById('ultimaMult').textContent = dados.exibicao;
-            document.getElementById('ultimaMult').style.color = hex;
-            document.getElementById('ultimaSoma').textContent = dados.soma || calcularSoma(dados.multiplicador);
+        function aplicarGlow(el, hex) {
+            el.style.textShadow = '0 0 7px ' + hex + ', 0 0 20px ' + hex + ', 0 0 40px ' + hex + ', 0 0 80px ' + hex;
         }
 
-        function atualizarPenultimaVela(dados) {
-            const cor = classificarCor(dados.multiplicador);
-            const hex = CORES[cor].hex;
-            document.getElementById('penultimaRodada').textContent = 'Rodada ' + dados.rodada;
-            document.getElementById('penultimaMult').textContent = dados.exibicao;
-            document.getElementById('penultimaMult').style.color = hex;
-            document.getElementById('penultimaSoma').textContent = dados.soma || calcularSoma(dados.multiplicador);
+        // ===== AVIATOR SWITCH =====
+        function selecionarAviator(n) {
+            aviatorAtivo = n;
+            document.querySelectorAll('.aviator-btn').forEach(b => b.classList.remove('ativo'));
+            document.querySelector('.aviator-btn[data-aviator="' + n + '"]').classList.add('ativo');
+            document.getElementById('chartContainer1').style.display = n === 1 ? 'block' : 'none';
+            document.getElementById('chartContainer2').style.display = n === 2 ? 'block' : 'none';
+            renderizarTudo();
         }
 
-        function adicionarVela(dados) {
-            todasVelas.push(dados);
-            renderizarCatalogo(todasVelas);
-            renderizarHistoricoFiltrado();
-            atualizarStats(todasVelas);
-            document.getElementById('totalCatalogo').textContent = todasVelas.length + ' velas';
-        }
+        // ===== SSE =====
+        const evtSource = new EventSource('/api/stream');
 
-        function renderizarCatalogo(velas) {
-            const grid = document.getElementById('catalogoGrid');
-            const ultimas20 = velas.slice(-20);
-            grid.innerHTML = ultimas20.map(v => {
-                const cor = classificarCor(v.multiplicador);
-                const hex = CORES[cor].hex;
-                const soma = v.soma || calcularSoma(v.multiplicador);
-                return `<div class="vela-mini" style="border-color: ${hex}40;">
-                    <span class="mult" style="color: ${hex}">${v.exibicao}</span>
-                    <span class="rodada">#${v.rodada}</span>
-                    <span class="soma-tag" style="color: ${hex}80">+${soma}</span>
-                </div>`;
-            }).join('');
-        }
+        evtSource.addEventListener('conectado', () => {
+            document.getElementById('statusDot').className = 'status-dot';
+            document.getElementById('statusText').textContent = '🟢 Conectado';
+        });
 
-        function renderizarHistorico(velas) {
-            renderizarHistoricoFiltrado();
-        }
-
-        function renderizarHistoricoFiltrado() {
-            const grid = document.getElementById('historicoGrid');
-            let velasFiltradas = [];
-
-            if (filtroAtivo === 'todas') {
-                velasFiltradas = [...todasVelas];
-            } else {
-                velasFiltradas = todasVelas.filter(v => classificarCor(v.multiplicador) === filtroAtivo);
+        function configurarSSE() {
+            for (let n = 1; n <= 2; n++) {
+                const s = n === 1 ? '1' : '2';
+                evtSource.addEventListener('ultima_rodada_' + s, (function(num) {
+                    return function(e) { atualizarVelaUI(num, 'ultima', JSON.parse(e.data)); };
+                })(n));
+                evtSource.addEventListener('penultima_rodada_' + s, (function(num) {
+                    return function(e) { atualizarVelaUI(num, 'penultima', JSON.parse(e.data)); };
+                })(n));
+                evtSource.addEventListener('nova_rodada_' + s, (function(num) {
+                    return function(e) {
+                        const dados = JSON.parse(e.data);
+                        const arr = num === 1 ? todasVelas1 : todasVelas2;
+                        arr.push(dados);
+                        if (num === 1) ultimoTimestamp1 = Date.now();
+                        else ultimoTimestamp2 = Date.now();
+                        if (aviatorAtivo === num) {
+                            atualizarVelaUI(num, 'ultima', dados);
+                            atualizarGrafico();
+                            renderizarCatalogo(arr);
+                            renderizarHistoricoFiltrado();
+                            atualizarStats(arr);
+                            document.getElementById('totalCatalogo').textContent = arr.length + ' velas';
+                        }
+                    };
+                })(n));
+                evtSource.addEventListener('atualizar_ultimas_' + s, (function(num) {
+                    return function(e) {
+                        const dados = JSON.parse(e.data);
+                        if (dados.length >= 2) {
+                            if (aviatorAtivo === num) {
+                                atualizarVelaUI(num, 'ultima', dados[dados.length - 1]);
+                                atualizarVelaUI(num, 'penultima', dados[dados.length - 2]);
+                            }
+                        }
+                    };
+                })(n));
+                evtSource.addEventListener('historico_' + s, (function(num) {
+                    return function(e) {
+                        const dados = JSON.parse(e.data);
+                        if (num === 1) todasVelas1 = dados;
+                        else todasVelas2 = dados;
+                        if (aviatorAtivo === num) {
+                            renderizarCatalogo(dados);
+                            renderizarHistoricoFiltrado();
+                            atualizarStats(dados);
+                        }
+                    };
+                })(n));
+                evtSource.addEventListener('estatisticas_' + s, (function(num) {
+                    return function(e) {
+                        const stats = JSON.parse(e.data);
+                        if (aviatorAtivo !== num) return;
+                        if (stats.porcentagens) {
+                            document.getElementById('statAzul').textContent = stats.porcentagens.azul + '%';
+                            document.getElementById('statRoxa').textContent = stats.porcentagens.roxa + '%';
+                            document.getElementById('statRosa').textContent = stats.porcentagens.rosa + '%';
+                        }
+                        if (stats.total) {
+                            document.getElementById('totalCatalogo').textContent = stats.total + ' velas';
+                        }
+                    };
+                })(n));
             }
 
-            // Mostra as mais recentes primeiro
-            velasFiltradas = velasFiltradas.reverse();
-
-            grid.innerHTML = velasFiltradas.map(v => {
-                const cor = classificarCor(v.multiplicador);
-                const hex = CORES[cor].hex;
-                const soma = v.soma || calcularSoma(v.multiplicador);
-                return `<div class="vela-historico" style="border-color: ${hex}40;" onclick="selecionarVela(this, '${cor}')">
-                    <span class="mult-h" style="color: ${hex}">${v.exibicao}</span>
-                    <span class="rodada-h">#${v.rodada}</span>
-                    <span class="soma-h" style="color: ${hex}">Soma: ${soma}</span>
-                </div>`;
-            }).join('');
-
-            document.getElementById('contagemHistorico').textContent =
-                velasFiltradas.length + ' velas ' + (filtroAtivo !== 'todas' ? `(${filtroAtivo})` : '(todas)');
-        }
-
-        function selecionarVela(el, cor) {
-            // Seleciona todas as velas da mesma cor
-            const todasVelasEl = document.querySelectorAll('.vela-historico');
-            todasVelasEl.forEach(v => v.classList.remove('selecionada'));
-
-            const mesmaCor = document.querySelectorAll(`.vela-historico`);
-            mesmaCor.forEach(v => {
-                const corVela = classificarCor(parseFloat(v.querySelector('.mult-h').textContent));
-                if (corVela === cor) {
-                    v.classList.add('selecionada');
+            evtSource.addEventListener('extensao_status', (e) => {
+                const st = JSON.parse(e.data);
+                const el = document.getElementById('extensaoStatus');
+                if (!el) return;
+                if (st.conectada) {
+                    el.innerHTML = '📱 Extensão: <span style="color:#00e676">Conectada</span>';
+                    el.title = 'Celular enviando dados em tempo real';
+                } else {
+                    el.innerHTML = '📱 Extensão: <span style="color:#ff5252">Offline</span>';
                 }
             });
         }
 
-        function filtrar(filtro) {
-            filtroAtivo = filtro;
-            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
-            document.querySelector(`.filtro-btn.${filtro}`).classList.add('ativo');
-            renderizarHistoricoFiltrado();
+        evtSource.onerror = () => {
+            document.getElementById('statusDot').className = 'status-dot disconnected';
+            document.getElementById('statusText').textContent = '🔴 Desconectado';
+        };
 
-            // Se clicou numa cor, solicita histórico específico
-            if (filtro !== 'todas') {
-                fetch('/api/historico/' + filtro).then(r => r.json()).then(d => {
-                    todasVelas = d;
-                    renderizarHistoricoFiltrado();
-                });
-            }
+        // ===== UI UPDATES =====
+        function atualizarVelaUI(num, tipo, dados) {
+            const isUltima = tipo === 'ultima';
+            const prefix = isUltima ? 'ultima' : 'penultima';
+            const cor = classificarCor(dados.multiplicador);
+            const hex = CORES[cor].hex;
+            document.getElementById(prefix + 'Rodada').textContent = 'Rodada ' + dados.rodada;
+            const multEl = document.getElementById(prefix + 'Mult');
+            multEl.textContent = dados.exibicao;
+            multEl.style.color = hex;
+            aplicarGlow(multEl, hex);
+            document.getElementById(prefix + 'Soma').textContent = dados.soma || calcularSoma(dados.multiplicador);
         }
 
         function atualizarStats(velas) {
@@ -634,12 +620,79 @@
             document.getElementById('statRosa').textContent = (rosa / total * 100).toFixed(1) + '%';
         }
 
-        // ===== GRÁFICO =====
-        let chart = null;
+        function renderizarCatalogo(velas) {
+            const grid = document.getElementById('catalogoGrid');
+            const ultimas20 = velas.slice(-20);
+            grid.innerHTML = ultimas20.map(v => {
+                const cor = classificarCor(v.multiplicador);
+                const hex = CORES[cor].hex;
+                const soma = v.soma || calcularSoma(v.multiplicador);
+                return '<div class="vela-mini" style="border-color: ' + hex + '40;">' +
+                    '<span class="mult" style="color: ' + hex + '">' + v.exibicao + '</span>' +
+                    '<span class="rodada">#' + v.rodada + '</span>' +
+                    '<span class="soma-tag" style="color: ' + hex + '80">+' + soma + '</span>' +
+                '</div>';
+            }).join('');
+        }
 
-        function criarGrafico() {
-            const ctx = document.getElementById('aviatorChart').getContext('2d');
-            chart = new Chart(ctx, {
+        function renderizarHistoricoFiltrado() {
+            const grid = document.getElementById('historicoGrid');
+            const velas = getVelasAtivas();
+            let velasFiltradas = filtroAtivo === 'todas' ? [...velas] : velas.filter(v => classificarCor(v.multiplicador) === filtroAtivo);
+            velasFiltradas = velasFiltradas.reverse();
+            grid.innerHTML = velasFiltradas.map(v => {
+                const cor = classificarCor(v.multiplicador);
+                const hex = CORES[cor].hex;
+                const soma = v.soma || calcularSoma(v.multiplicador);
+                return '<div class="vela-historico" style="border-color: ' + hex + '40;" onclick="selecionarVela(this, \'' + cor + '\')">' +
+                    '<span class="mult-h" style="color: ' + hex + '">' + v.exibicao + '</span>' +
+                    '<span class="rodada-h">#' + v.rodada + '</span>' +
+                    '<span class="soma-h" style="color: ' + hex + '">Soma: ' + soma + '</span>' +
+                '</div>';
+            }).join('');
+            document.getElementById('contagemHistorico').textContent =
+                velasFiltradas.length + ' velas ' + (filtroAtivo !== 'todas' ? '(' + filtroAtivo + ')' : '(todas)');
+        }
+
+        function selecionarVela(el, cor) {
+            document.querySelectorAll('.vela-historico').forEach(v => v.classList.remove('selecionada'));
+            document.querySelectorAll('.vela-historico').forEach(v => {
+                const corVela = classificarCor(parseFloat(v.querySelector('.mult-h').textContent));
+                if (corVela === cor) v.classList.add('selecionada');
+            });
+        }
+
+        function filtrar(filtro) {
+            filtroAtivo = filtro;
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
+            document.querySelector('.filtro-btn.' + filtro).classList.add('ativo');
+            renderizarHistoricoFiltrado();
+            if (filtro !== 'todas') {
+                fetch('/api/' + aviatorAtivo + '/historico/' + filtro).then(r => r.json()).then(d => {
+                    if (aviatorAtivo === 1) todasVelas1 = d;
+                    else todasVelas2 = d;
+                    renderizarHistoricoFiltrado();
+                });
+            }
+        }
+
+        function renderizarTudo() {
+            const velas = getVelasAtivas();
+            renderizarCatalogo(velas);
+            renderizarHistoricoFiltrado();
+            atualizarStats(velas);
+            document.getElementById('totalCatalogo').textContent = velas.length + ' velas';
+            if (velas.length > 0) {
+                atualizarVelaUI(aviatorAtivo, 'ultima', velas[velas.length - 1]);
+                if (velas.length >= 2) atualizarVelaUI(aviatorAtivo, 'penultima', velas[velas.length - 2]);
+            }
+            atualizarGrafico();
+        }
+
+        // ===== GRÁFICO =====
+        function criarGrafico(id, canvasId) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: [],
@@ -658,9 +711,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x: {
                             ticks: { color: '#666', maxTicksLimit: 10, font: { size: 10 } },
@@ -677,32 +728,58 @@
         }
 
         function atualizarGrafico() {
+            const velas = getVelasAtivas();
+            const chart = getChartAtivo();
             if (!chart) return;
-            const ultimas30 = todasVelas.slice(-30);
+            const ultimas30 = velas.slice(-30);
             chart.data.labels = ultimas30.map(v => v.rodada.toString().slice(-4));
             chart.data.datasets[0].data = ultimas30.map(v => v.multiplicador);
-
-            // Pinta os pontos por cor
-            chart.data.datasets[0].pointBackgroundColor = ultimas30.map(v => {
-                const cor = classificarCor(v.multiplicador);
-                return CORES[cor].hex;
-            });
-
+            chart.data.datasets[0].pointBackgroundColor = ultimas30.map(v => CORES[classificarCor(v.multiplicador)].hex);
             chart.update('none');
         }
 
+        // ===== TIMER =====
+        function iniciarTimer() {
+            setInterval(() => {
+                const agora = Date.now();
+                const ts = aviatorAtivo === 1 ? ultimoTimestamp1 : ultimoTimestamp2;
+                const passou = Math.floor((agora - ts) / 1000);
+                const restante = Math.max(0, 12 - passou);
+                const el = document.getElementById('timerTexto');
+                if (restante > 0 && passou > 1) {
+                    el.textContent = restante + 's';
+                    el.className = 'timer-num' + (restante <= 3 ? ' urgente' : '');
+                } else if (passou <= 1) {
+                    el.textContent = '⚡AGORA!';
+                    el.className = 'timer-num';
+                } else {
+                    el.textContent = '--';
+                    el.className = 'timer-num';
+                }
+            }, 500);
+        }
+
+        // ===== SCROLL TO TOP =====
+        window.onscroll = function() {
+            const btn = document.getElementById('scrollTopBtn');
+            btn.style.display = window.scrollY > 300 ? 'flex' : 'none';
+        };
+
         // ===== INICIALIZAÇÃO =====
         document.addEventListener('DOMContentLoaded', () => {
-            criarGrafico();
-            // Solicita histórico completo
+            chart1 = criarGrafico(1, 'aviatorChart1');
+            chart2 = criarGrafico(2, 'aviatorChart2');
+            configurarSSE();
+            iniciarTimer();
+
             setTimeout(() => {
-                fetch('/api/historico').then(r => r.json()).then(d => {
-                    todasVelas = d;
-                    renderizarCatalogo(d);
-                    renderizarHistoricoFiltrado();
-                    atualizarStats(d);
-                    document.getElementById('totalCatalogo').textContent = d.length + ' velas';
-                    document.getElementById('contagemHistorico').textContent = d.length + ' velas carregadas';
+                fetch('/api/1/historico').then(r => r.json()).then(d => {
+                    todasVelas1 = d;
+                    if (aviatorAtivo === 1) renderizarTudo();
+                });
+                fetch('/api/2/historico').then(r => r.json()).then(d => {
+                    todasVelas2 = d;
+                    if (aviatorAtivo === 2) renderizarTudo();
                 });
             }, 1000);
         });
