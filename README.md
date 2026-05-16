@@ -12,7 +12,7 @@ Painel em tempo real para o jogo Aviator com histórico de 15.000 velas.
    - **Name**: `painel-aviator`
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn -k eventlet -w 1 --bind 0.0.0.0:$PORT server:app`
+   - **Start Command**: `python -u app.py`
 6. Adicione env vars:
    - `SIMULAR_DADOS`: `true` (ou `false` para dados reais)
    - `INTERVALO_RODADA`: `8`
