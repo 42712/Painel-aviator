@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Painel Aviator</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -423,62 +422,58 @@
         let filtroAtivo = 'todas';
         let historicoCompleto = [];
 
-        // ===== SOCKET =====
-        const socket = io({
-            transports: ['websocket', 'polling']
-        });
+        // ===== SSE (Server-Sent Events) =====
+        const evtSource = new EventSource('/api/stream');
 
-        socket.on('connect', () => {
+        evtSource.addEventListener('conectado', () => {
             document.getElementById('statusDot').className = 'status-dot';
             document.getElementById('statusText').textContent = '🟢 Conectado';
-            console.log('[SOCKET] Conectado');
         });
 
-        socket.on('disconnect', () => {
-            document.getElementById('statusDot').className = 'status-dot disconnected';
-            document.getElementById('statusText').textContent = '🔴 Desconectado';
+        evtSource.addEventListener('ultima_rodada', (e) => {
+            atualizarUltimaVela(JSON.parse(e.data));
         });
 
-        socket.on('ultima_rodada', (dados) => {
-            atualizarUltimaVela(dados);
+        evtSource.addEventListener('penultima_rodada', (e) => {
+            atualizarPenultimaVela(JSON.parse(e.data));
         });
 
-        socket.on('penultima_rodada', (dados) => {
-            atualizarPenultimaVela(dados);
-        });
-
-        socket.on('nova_rodada', (dados) => {
+        evtSource.addEventListener('nova_rodada', (e) => {
+            const dados = JSON.parse(e.data);
             adicionarVela(dados);
             atualizarUltimaVela(dados);
             atualizarGrafico();
         });
 
-        socket.on('atualizar_ultimas', (dados) => {
+        evtSource.addEventListener('atualizar_ultimas', (e) => {
+            const dados = JSON.parse(e.data);
             if (dados.length >= 2) {
                 atualizarUltimaVela(dados[dados.length - 1]);
                 atualizarPenultimaVela(dados[dados.length - 2]);
             }
         });
 
-        socket.on('historico', (dados) => {
+        evtSource.addEventListener('historico', (e) => {
+            const dados = JSON.parse(e.data);
             todasVelas = dados;
             renderizarCatalogo(dados);
             renderizarHistorico(dados);
             atualizarStats(dados);
         });
 
-        socket.on('historico_completo', (dados) => {
-            historicoCompleto = dados;
-            todasVelas = dados;
-            renderizarCatalogo(dados);
-            renderizarHistoricoFiltrado();
-            atualizarStats(dados);
-            document.getElementById('totalCatalogo').textContent = dados.length + ' velas';
-            document.getElementById('contagemHistorico').textContent = dados.length + ' velas carregadas';
-            console.log('[HISTÓRICO] Carregadas ' + dados.length + ' velas');
+        evtSource.addEventListener('historico_completo', () => {
+            fetch('/api/historico').then(r => r.json()).then(dados => {
+                todasVelas = dados;
+                renderizarCatalogo(dados);
+                renderizarHistoricoFiltrado();
+                atualizarStats(dados);
+                document.getElementById('totalCatalogo').textContent = dados.length + ' velas';
+                document.getElementById('contagemHistorico').textContent = dados.length + ' velas carregadas';
+            });
         });
 
-        socket.on('estatisticas', (stats) => {
+        evtSource.addEventListener('estatisticas', (e) => {
+            const stats = JSON.parse(e.data);
             if (stats.porcentagens) {
                 document.getElementById('statAzul').textContent = stats.porcentagens.azul + '%';
                 document.getElementById('statRoxa').textContent = stats.porcentagens.roxa + '%';
@@ -488,6 +483,11 @@
                 document.getElementById('totalCatalogo').textContent = stats.total + ' velas';
             }
         });
+
+        evtSource.onerror = () => {
+            document.getElementById('statusDot').className = 'status-dot disconnected';
+            document.getElementById('statusText').textContent = '🔴 Desconectado';
+        };
 
         // ===== FUNÇÕES =====
         function classificarCor(mult) {
@@ -600,7 +600,10 @@
 
             // Se clicou numa cor, solicita histórico específico
             if (filtro !== 'todas') {
-                socket.emit('solicitar_historico', { cor: filtro });
+                fetch('/api/historico/' + filtro).then(r => r.json()).then(d => {
+                    todasVelas = d;
+                    renderizarHistoricoFiltrado();
+                });
             }
         }
 
@@ -680,7 +683,14 @@
             criarGrafico();
             // Solicita histórico completo
             setTimeout(() => {
-                socket.emit('solicitar_tudo');
+                fetch('/api/historico').then(r => r.json()).then(d => {
+                    todasVelas = d;
+                    renderizarCatalogo(d);
+                    renderizarHistoricoFiltrado();
+                    atualizarStats(d);
+                    document.getElementById('totalCatalogo').textContent = d.length + ' velas';
+                    document.getElementById('contagemHistorico').textContent = d.length + ' velas carregadas';
+                });
             }, 1000);
         });
     </script>

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Painel Aviator</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -295,22 +294,34 @@
         let filtroAtivo = 'todas';
         let chart = null;
 
-        const socket = io({ transports: ['websocket', 'polling'] });
+        // ===== SSE (Server-Sent Events) =====
+        const evtSource = new EventSource('/api/stream');
 
-        socket.on('connect', () => console.log('[WS] Conectado'));
-        socket.on('nova_rodada', (d) => { adicionarVela(d); atualizarUltimaVela(d); atualizarGrafico(); });
-        socket.on('ultima_rodada', atualizarUltimaVela);
-        socket.on('penultima_rodada', atualizarPenultimaVela);
-        socket.on('atualizar_ultimas', (d) => {
+        evtSource.addEventListener('nova_rodada', (e) => {
+            const d = JSON.parse(e.data);
+            adicionarVela(d);
+            atualizarUltimaVela(d);
+            atualizarGrafico();
+        });
+        evtSource.addEventListener('ultima_rodada', (e) => { atualizarUltimaVela(JSON.parse(e.data)); });
+        evtSource.addEventListener('penultima_rodada', (e) => { atualizarPenultimaVela(JSON.parse(e.data)); });
+        evtSource.addEventListener('atualizar_ultimas', (e) => {
+            const d = JSON.parse(e.data);
             if (d.length >= 2) { atualizarUltimaVela(d[d.length-1]); atualizarPenultimaVela(d[d.length-2]); }
         });
-        socket.on('historico', (d) => { todasVelas = d; renderizarCatalogo(d); renderizarHistorico(d); atualizarStats(d); });
-        socket.on('historico_completo', (d) => {
-            todasVelas = d; renderizarCatalogo(d); renderizarHistoricoFiltrado(); atualizarStats(d);
-            document.getElementById('totalCatalogo').textContent = d.length + ' velas';
-            document.getElementById('contagemHistorico').textContent = d.length + ' velas';
+        evtSource.addEventListener('historico', (e) => {
+            const d = JSON.parse(e.data);
+            todasVelas = d; renderizarCatalogo(d); renderizarHistorico(d); atualizarStats(d);
         });
-        socket.on('estatisticas', (s) => {
+        evtSource.addEventListener('historico_completo', () => {
+            fetch('/api/historico').then(r => r.json()).then(d => {
+                todasVelas = d; renderizarCatalogo(d); renderizarHistoricoFiltrado(); atualizarStats(d);
+                document.getElementById('totalCatalogo').textContent = d.length + ' velas';
+                document.getElementById('contagemHistorico').textContent = d.length + ' velas';
+            });
+        });
+        evtSource.addEventListener('estatisticas', (e) => {
+            const s = JSON.parse(e.data);
             if (s.porcentagens) {
                 document.getElementById('statAzul').textContent = s.porcentagens.azul + '%';
                 document.getElementById('statRoxa').textContent = s.porcentagens.roxa + '%';
@@ -392,7 +403,7 @@
                 data: { labels: [], datasets: [{ label: 'Multiplicador', data: [], borderColor: '#913EF8', backgroundColor: 'rgba(145,62,248,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#666', maxTicksLimit: 10, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { ticks: { color: '#666' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
             });
-            setTimeout(() => socket.emit('solicitar_tudo'), 1000);
+            setTimeout(() => fetch('/api/historico').then(r=>r.json()).then(d=>{ todasVelas=d; renderizarCatalogo(d); renderizarHistorico(d); atualizarStats(d); }), 1000);
         });
         function atualizarGrafico() {
             if (!chart) return;
