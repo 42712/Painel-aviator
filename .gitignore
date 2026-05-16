@@ -9,3 +9,4 @@ venv/
 dist/
 node_modules/
 data/
+__pycache__/
