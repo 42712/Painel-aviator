@@ -21,7 +21,7 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 app.config['SESSION_PERMANENT'] = True
 CORS(app, supports_credentials=True)
-socketio = SocketIO(app, cors_allowed_origins="*", )
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="simple-websocket")
 
 def on_nova_rodada(rodada):
     dados = rodada.to_dict()

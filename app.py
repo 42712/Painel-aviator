@@ -1,7 +1,4 @@
-"""Entrypoint WSGI para o Render - inicializa gevent antes de tudo"""
-import gevent.monkey
-gevent.monkey.patch_all()
-
+"""Entrypoint WSGI para o Render - usa simple-websocket (Python puro)"""
 import os, sys
 
 backend = os.path.join(os.path.dirname(__file__), 'backend')
