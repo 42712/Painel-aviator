@@ -6,11 +6,14 @@
   "permissions": [
     "storage",
     "tabs",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://betou.bet.br/*",
     "https://*.betou.bet.br/*",
+    "https://spribegaming.com/*",
+    "https://*.spribegaming.com/*",
     "https://painel-aviator.onrender.com/*"
   ],
   "background": {
@@ -21,12 +24,19 @@
     {
       "matches": [
         "https://betou.bet.br/games/spribe/aviator*",
-        "https://*.betou.bet.br/games/spribe/aviator*"
+        "https://*.betou.bet.br/games/spribe/aviator*",
+        "https://betou.bet.br/*aviator*",
+        "https://*.betou.bet.br/*aviator*",
+        "https://betou.bet.br/*",
+        "https://*.betou.bet.br/*",
+        "https://spribegaming.com/*",
+        "https://*.spribegaming.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true,
-      "match_about_blank": true
+      "match_about_blank": true,
+      "match_origin_as_fallback": true
     }
   ],
   "action": {
