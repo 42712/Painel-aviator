@@ -1,304 +1,285 @@
-// ===== Content Script - Coletor Betou Aviator v2.1 =====
-// Mapeamento: Betou /aviator → Painel 2 | Betou /aviator2 → Painel 1
+// ===== Content Script - Betou Coletor v3.2 =====
+// Seletores confirmados pelo HTML real da Betou/Spribe
 
 const SERVER_URL = "https://painel-aviator.onrender.com";
-const INTERVALO_ENVIO = 2;
+const INTERVALO_MIN_ENVIO_MS = 2000;
+const MAX_LOTE = 50;
 const LOG = true;
 
-function log(...args) { if (LOG) console.log('[BetouColetor]', ...args); }
+function log(...args) {
+  if (LOG) console.log('[BetouColetor v3.2]', ...args);
+}
 
 let lote = [];
-let ultimoEnvio = 0;
+let ultimoEnvioMs = 0;
 let rodadasVistas = new Set();
-let config = { token: 'default' };
-let enviosComSucesso = 0;
-let enviosComFalha = 0;
+let token = 'default';
+let enviosOk = 0;
+let enviando = false;
 
-function getAviatorPainel() {
-  return window.location.pathname.includes('/aviator2') ? 1 : 2;
+const isIframe = window.self !== window.top;
+
+log(`iframe=${isIframe} | url=${window.location.href.substring(0,80)}`);
+
+function getPainel() {
+  try {
+    const topUrl = window.top.location.href;
+    return topUrl.includes('/aviator2') ? 1 : 2;
+  } catch(_) {
+    return document.referrer.includes('/aviator2') ? 1 : 2;
+  }
 }
 
 chrome.storage.sync.get(['token'], (cfg) => {
-  if (cfg.token) config.token = cfg.token;
-  log('Token:', config.token);
+  if (cfg.token) token = cfg.token;
+  log('Token:', token);
+});
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.token) token = changes.token.newValue || 'default';
 });
 
-// ===== UTIL =====
-async function blobToText(blob) {
+async function blobParaTexto(blob) {
   return new Promise((resolve) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result);
+    r.onerror = () => resolve('');
     r.readAsText(blob);
   });
 }
 
-// ===== 1. WEBSOCKET - STOMP / Spribe =====
-const NativeWS = window.WebSocket;
-window.WebSocket = new Proxy(NativeWS, {
-  construct(target, args) {
-    const ws = new target(...args);
-    const url = args[0] || '';
-    log('WebSocket:', url.substring(0, 80) + '...');
+// ===== INTERCEPTA WEBSOCKET =====
+(function() {
+  const NativeWS = window.WebSocket;
+  if (!NativeWS) return;
 
-    ws.addEventListener('message', async (event) => {
-      try {
-        let raw = event.data;
-        if (raw instanceof Blob) raw = await blobToText(raw);
-        else if (raw instanceof ArrayBuffer) {
-          raw = new TextDecoder().decode(raw);
-        }
-        if (typeof raw !== 'string') return;
-        if (raw.length > 5000) {
-          // Tenta processar só o final (onde vem o resultado)
-          processarSTOMP(raw);
-        } else {
-          processarSTOMP(raw);
-        }
-      } catch (e) {
-        log('Erro WS:', e.message.substring(0, 80));
-      }
-    });
+  window.WebSocket = new Proxy(NativeWS, {
+    construct(Target, args) {
+      const ws = new Target(...args);
+      const url = (args[0] || '').toString();
+      log('WS aberto:', url.substring(0, 100));
 
-    ws.addEventListener('open', () => log('WS conectado'));
-    ws.addEventListener('close', () => log('WS fechado'));
+      ws.addEventListener('message', async (ev) => {
+        try {
+          let raw = ev.data;
+          if (raw instanceof Blob)             raw = await blobParaTexto(raw);
+          else if (raw instanceof ArrayBuffer) raw = new TextDecoder().decode(raw);
+          if (typeof raw !== 'string' || !raw) return;
+          processarMensagem(raw);
+        } catch(e) { log('Erro msg:', e.message); }
+      });
 
-    return ws;
-  }
-});
+      ws.addEventListener('open',  () => log('WS conectado ✓'));
+      ws.addEventListener('close', () => log('WS fechado'));
+      return ws;
+    }
+  });
+  log('WebSocket interceptado ✓');
+})();
 
-function processarSTOMP(raw) {
-  // STOMP frame: headers\n\nbody\0
-  // Vários frames podem vir concatenados
-  if (raw.includes('MESSAGE\n')) {
-    const frames = raw.split('MESSAGE\n');
-    for (const frame of frames) {
-      if (!frame.trim()) continue;
-      const bodyStart = frame.indexOf('\n\n');
-      if (bodyStart === -1) continue;
-      let body = frame.substring(bodyStart + 2).replace(/\0$/, '').trim();
-      if (!body) continue;
-      try {
-        const obj = JSON.parse(body);
-        processarMsgSpribe(obj);
-      } catch (_) {
-        // Tenta extrair JSON do corpo
-        const m = body.match(/\{.*\}/);
-        if (m) try {
-          processarMsgSpribe(JSON.parse(m[0]));
-        } catch(_2) {}
-      }
+// ===== PROCESSAR MENSAGENS WS =====
+function processarMensagem(raw) {
+  if (raw.includes('MESSAGE\n') || raw.includes('MESSAGE\r\n')) {
+    for (const frame of raw.split(/MESSAGE\r?\n/)) {
+      const sep = frame.indexOf('\n\n');
+      if (sep === -1) continue;
+      const body = frame.substring(sep + 2).replace(/\0+$/, '').trim();
+      if (body) tentarJSON(body);
     }
     return;
   }
-
-  // Mensagens curtas: tenta JSON direto
-  if (raw.length < 2000) {
-    try {
-      const obj = JSON.parse(raw);
-      processarMsgSpribe(obj);
-      return;
-    } catch (_) {}
-  }
-
-  // Fallback: procura JSON no corpo
-  const jsonMatch = raw.match(/\n\n(\{.*?\})(?:\0|$)/);
-  if (jsonMatch) {
-    try {
-      const obj = JSON.parse(jsonMatch[1]);
-      processarMsgSpribe(obj);
-    } catch (_) {}
-  }
+  tentarJSON(raw);
 }
 
-function processarMsgSpribe(obj) {
+function tentarJSON(texto) {
+  try { processarObj(JSON.parse(texto)); return; } catch(_) {}
+  const matches = texto.match(/\{[^{}]{5,}\}/g);
+  if (matches) for (const m of matches) { try { processarObj(JSON.parse(m)); } catch(_) {} }
+}
+
+function processarObj(obj) {
   if (!obj || typeof obj !== 'object') return;
-  if (Array.isArray(obj)) {
-    obj.forEach(o => processarMsgSpribe(o));
-    return;
+  if (Array.isArray(obj)) { obj.forEach(processarObj); return; }
+
+  const mult = parseFloat(
+    obj.multiplayer ?? obj.multiplier ?? obj.multiplicador ??
+    obj.crashMultiplier ?? obj.value ?? obj.payout ??
+    obj.coefficient ?? obj.coef ?? NaN
+  );
+  const rid = parseInt(
+    obj.gameRoundId ?? obj.roundId ?? obj.round_id ?? obj.id ?? 0
+  ) || Math.floor(Date.now() / 1000);
+  const estado = (obj.state ?? obj.status ?? obj.event ?? obj.type ?? '').toString().toLowerCase();
+
+  if (!isNaN(mult) && mult >= 1.0 && mult < 10000) {
+    if (mult === 1.0 && !['ended','end','complete','finished','crash','busted','cashout'].includes(estado)) return;
+    adicionarRodada(mult, rid, 'ws');
   }
 
-  // Spribe Aviator envia mensagens como:
-  // {"multiplayer":1.24,"gameRoundId":3709833,...}
-  let mult = obj.multiplayer ?? obj.multiplier ?? obj.multiplicador ?? obj.crashMultiplier ?? obj.value ?? null;
-  let rid = obj.gameRoundId ?? obj.roundId ?? obj.round ?? obj.id ?? null;
-  let estado = obj.state ?? obj.status ?? obj.event ?? null;
-
-  // Só processa se tiver multiplicador > 1 (ou se for o estado final "ended")
-  if (mult !== null) {
-    mult = parseFloat(mult);
-    if (mult > 0 && mult < 1000) {
-      if (!rid) rid = Math.floor(Math.random() * 9000000) + 1000000;
-      // Ignora multiplicadores 1.00 que ainda estão rodando
-      if (mult === 1.00 && estado !== 'ended' && estado !== 'complete') return;
-      adicionarRodada(mult, parseInt(rid), 'ws');
-      return;
-    }
+  for (const c of ['data','result','payload','body','game','round','response','info']) {
+    if (obj[c] && typeof obj[c] === 'object') processarObj(obj[c]);
   }
-
-  // Aninhado
-  if (obj.data) processarMsgSpribe(obj.data);
 }
 
-// ===== 2. DOM - Fallback baseado no HTML real da Betou =====
-// HTML: <span class="text-uppercase"> Rodada 3709833 </span>
-//        <div class="bubble-multiplier font-weight-bold"> 1.24x</div>
-//        <div class="header__info-time"> 16:55:35 </div>
+// ===== DOM - SELETORES CONFIRMADOS DO HTML REAL =====
+// <span class="text-uppercase ng-tns-c45-3"> Rodada 3709961 </span>
+// <div class="bubble-multiplier font-weight-bold"> 4.95x </div>
+// <div class="header__info-time ng-tns-c45-3"> 17:42:46 </div>
 
-let domTimeout = null;
 let domCache = new Set();
+let domDebounce = null;
+let ultimaRodadaDOM = null; // guarda o último ID visto no span
 
-function capturarDOM() {
-  const bolhas = document.querySelectorAll('.bubble-multiplier');
-  if (!bolhas.length) {
-    // Tenta seletores alternativos se não achar
-    const alt = document.querySelectorAll('[class*="multiplier"],[class*="bubble"],[class*="payout"]');
-    for (const el of alt) {
-      const txt = el.textContent.replace('x', '').replace(',', '.').trim();
-      const v = parseFloat(txt);
-      if (v && v > 0 && v < 1000) {
-        const ts = Math.floor(Date.now() / 3000);
-        const key = `alt_${ts}_${v.toFixed(2)}`;
-        if (domCache.has(key)) continue;
-        domCache.add(key);
-        // Tenta achar rodada ID
-        let rid = Math.floor(Date.now() / 1000);
-        const span = document.querySelector('.text-uppercase');
-        if (span) {
-          const m = span.textContent.match(/(\d+)/);
-          if (m) rid = parseInt(m[1]);
-        }
-        adicionarRodada(v, rid, 'dom');
+function lerEstadoDOM() {
+  // 1. Pega o ID da rodada atual
+  const spanRodada = document.querySelector('.text-uppercase');
+  let rodadaId = null;
+  if (spanRodada) {
+    const m = spanRodada.textContent.match(/(\d{5,})/);
+    if (m) rodadaId = parseInt(m[1]);
+  }
+
+  // 2. Pega o horário
+  let horario = '';
+  const elHora = document.querySelector('.header__info-time');
+  if (elHora) horario = elHora.textContent.trim();
+
+  // 3. Pega o multiplicador
+  const elMult = document.querySelector('.bubble-multiplier');
+  if (!elMult) return;
+
+  const txt = elMult.textContent.replace(/[x×]/gi, '').replace(',', '.').trim();
+  const v = parseFloat(txt);
+  if (!v || v < 1.0 || v >= 10000) return;
+
+  // Usa rodadaId se disponível, senão usa fallback por tempo
+  const rid = rodadaId || Math.floor(Date.now() / 1000);
+
+  const chave = `${rid}_${v.toFixed(2)}`;
+  if (domCache.has(chave)) return;
+  domCache.add(chave);
+  if (domCache.size > 500) domCache = new Set([...domCache].slice(-250));
+
+  log(`[DOM] ✈ ${v.toFixed(2)}x #${rid} ${horario}`);
+  adicionarRodada(v, rid, 'dom', horario);
+}
+
+// Observa mudanças especificamente no .bubble-multiplier
+function observarDOM() {
+  const alvo = document.documentElement;
+
+  new MutationObserver((mutations) => {
+    if (domDebounce) return;
+
+    // Verifica se alguma mutação envolve o bubble-multiplier
+    let relevante = false;
+    for (const mut of mutations) {
+      const node = mut.target;
+      if (
+        (node.classList && (node.classList.contains('bubble-multiplier') || node.classList.contains('text-uppercase'))) ||
+        mut.addedNodes.length > 0
+      ) {
+        relevante = true;
+        break;
       }
     }
-    return;
-  }
+    if (!relevante && mutations.length < 5) return;
 
-  for (const el of bolhas) {
-    const txt = el.textContent.replace('x', '').replace(',', '.').trim();
-    const v = parseFloat(txt);
-    if (!v || v <= 0 || v >= 1000) continue;
+    domDebounce = setTimeout(() => {
+      domDebounce = null;
+      lerEstadoDOM();
+    }, 200);
 
-    // Extrai rodada ID do span .text-uppercase
-    let rid = Math.floor(Date.now() / 1000);
-    const spanRodada = document.querySelector('.text-uppercase');
-    if (spanRodada) {
-      const m = spanRodada.textContent.match(/(\d+)/);
-      if (m) rid = parseInt(m[1]);
-    }
+  }).observe(alvo, { childList: true, subtree: true, characterData: true, attributes: true });
 
-    // Horário
-    let horario = '';
-    const elTime = document.querySelector('.header__info-time');
-    if (elTime) horario = elTime.textContent.trim();
-
-    const key = `${rid}_${v.toFixed(2)}`;
-    if (domCache.has(key)) continue;
-    domCache.add(key);
-    if (domCache.size > 500) domCache = new Set([...domCache].slice(-250));
-
-    adicionarRodada(v, rid, 'dom', horario);
-  }
+  log('MutationObserver DOM iniciado ✓');
 }
 
-// MutationObserver p/ capturar novas bolhas
-new MutationObserver(() => {
-  if (domTimeout) return;
-  domTimeout = setTimeout(() => {
-    domTimeout = null;
-    capturarDOM();
-  }, 300);
-}).observe(document.body || document.documentElement, {
-  childList: true, subtree: true
-});
+// Polling de segurança a cada 3s — garante que nada passe batido
+let ultimoMultDOM = null;
+setInterval(() => {
+  const el = document.querySelector('.bubble-multiplier');
+  if (!el) return;
+  const v = parseFloat(el.textContent.replace(/[x×]/gi,'').replace(',','.').trim());
+  if (!v || v === ultimoMultDOM) return;
+  ultimoMultDOM = v;
+  lerEstadoDOM();
+}, 3000);
 
-// Captura inicial
-setTimeout(capturarDOM, 2000);
-setTimeout(capturarDOM, 4000);
-setTimeout(capturarDOM, 6000);
+observarDOM();
+[1000, 2000, 4000, 7000, 10000].forEach(ms => setTimeout(lerEstadoDOM, ms));
 
-// ===== 3. ENVIO AO SERVIDOR =====
-function adicionarRodada(multiplicador, rodadaId, origem = 'ws', horario = '') {
-  const key = `${rodadaId}_${multiplicador.toFixed(2)}`;
+// ===== ENVIO =====
+function adicionarRodada(mult, rid, origem, horario = '') {
+  const key = `${rid}_${mult.toFixed(2)}`;
   if (rodadasVistas.has(key)) return;
   rodadasVistas.add(key);
-  if (rodadasVistas.size > 1000) {
-    rodadasVistas = new Set([...rodadasVistas].slice(-500));
-  }
+  if (rodadasVistas.size > 2000) rodadasVistas = new Set([...rodadasVistas].slice(-1000));
 
-  log(`[${origem}] ${multiplicador.toFixed(2)}x #${rodadaId}`);
+  log(`✈ ${mult.toFixed(2)}x #${rid} [${origem}]`);
 
   lote.push({
-    rodada: rodadaId,
-    multiplicador: multiplicador,
+    rodada: rid,
+    multiplicador: parseFloat(mult.toFixed(2)),
     timestamp: horario || new Date().toLocaleTimeString('pt-BR'),
     origem
   });
 
+  if (lote.length > MAX_LOTE) lote = lote.slice(-MAX_LOTE);
   enviarLote();
 }
 
 async function enviarLote() {
-  const agora = Date.now();
-  if (agora - ultimoEnvio < INTERVALO_ENVIO * 1000) return;
-  if (lote.length === 0) return;
-
-  ultimoEnvio = agora;
-  const payload = {
-    token: config.token,
-    aviator: getAviatorPainel(),
-    rodadas: lote.splice(0)
-  };
+  if (enviando || Date.now() - ultimoEnvioMs < INTERVALO_MIN_ENVIO_MS || !lote.length) return;
+  enviando = true;
+  ultimoEnvioMs = Date.now();
+  const payload = { token, aviator: getPainel(), rodadas: lote.splice(0) };
 
   try {
-    const resp = await fetch(`${SERVER_URL}/api/webhook`, {
+    const r = await fetch(`${SERVER_URL}/api/webhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000)
     });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    await resp.json();
-    enviosComSucesso += payload.rodadas.length;
-    log(`Enviado ${payload.rodadas.length} rodadas (total: ${enviosComSucesso})`);
-
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await r.json();
+    enviosOk += payload.rodadas.length;
     const ult = payload.rodadas[payload.rodadas.length - 1];
-    chrome.runtime.sendMessage({
-      tipo: 'status', conectada: true,
-      ultimaVela: `${ult.multiplicador.toFixed(2)}x (#${ult.rodada})`,
-      totalEnviadas: enviosComSucesso
-    }).catch(() => {});
-  } catch (err) {
-    enviosComFalha++;
-    log('Falha envio:', err.message);
-    lote.push(...payload.rodadas);
-    if (lote.length > 100) lote = lote.slice(-50);
-  }
+    log(`✅ ${payload.rodadas.length} enviadas | total: ${enviosOk}`);
+    notificar(true, `${ult.multiplicador.toFixed(2)}x (#${ult.rodada})`, enviosOk);
+  } catch(e) {
+    log('❌ Falha:', e.message);
+    lote.unshift(...payload.rodadas);
+    if (lote.length > MAX_LOTE) lote = lote.slice(-MAX_LOTE);
+    notificar(false, null, enviosOk);
+  } finally { enviando = false; }
 }
 
-// Flush de segurança
-setInterval(() => {
-  if (lote.length > 0) {
-    ultimoEnvio = 0;
-    enviarLote();
-  }
-}, 5000);
+function notificar(conectada, ultimaVela, totalEnviadas) {
+  try {
+    chrome.runtime.sendMessage({
+      tipo: 'status', conectada, totalEnviadas,
+      ...(ultimaVela ? { ultimaVela } : {})
+    }).catch(()=>{});
+  } catch(_) {}
+}
 
-// Heartbeat 30s
+setInterval(() => { if (lote.length) { ultimoEnvioMs = 0; enviarLote(); } }, 5000);
+
+// Heartbeat
 setInterval(() => {
   fetch(`${SERVER_URL}/api/webhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      token: config.token, aviator: getAviatorPainel(),
-      heartbeat: true, timestamp: new Date().toISOString()
-    })
-  }).then(r => r.json()).catch(() => {});
+    body: JSON.stringify({ token, aviator: getPainel(), heartbeat: true, timestamp: new Date().toISOString() }),
+    signal: AbortSignal.timeout(5000)
+  }).then(r => r.json()).then(() => notificar(true, null, enviosOk)).catch(() => notificar(false, null, enviosOk));
 }, 30000);
 
 // Status inicial
-fetch(`${SERVER_URL}/api/webhook/status`)
+fetch(`${SERVER_URL}/api/webhook/status`, { signal: AbortSignal.timeout(5000) })
   .then(r => r.json())
   .then(s => log('Servidor:', JSON.stringify(s)))
-  .catch(e => log('Servidor off?', e.message));
+  .catch(e => log('Servidor off:', e.message));
 
-log('=== BETOU COLETOR v2.1 ATIVO ===');
-log('URL:', window.location.href);
+log(`=== BETOU COLETOR v3.2 | iframe=${isIframe} ===`);

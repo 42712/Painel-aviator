@@ -1,151 +1,308 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Betou Coletor</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Segoe UI', sans-serif;
-  width: 320px;
-  background: #0f1923;
-  color: #fff;
-  padding: 16px;
-}
-h1 { font-size: 18px; margin-bottom: 12px; color: #00e676; }
-.status {
-  background: #1a2936;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 13px;
-}
-.label { color: #8899aa; }
-.conectado { color: #00e676; }
-.desconectado { color: #ff5252; }
-.campo {
-  margin-bottom: 10px;
-}
-.campo label {
-  display: block;
-  font-size: 11px;
-  color: #8899aa;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-.campo input {
-  width: 100%;
-  padding: 8px 10px;
-  background: #0f1923;
-  border: 1px solid #2a3a4a;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-}
-.campo input:focus {
-  border-color: #00e676;
-}
-.btn {
-  width: 100%;
-  padding: 10px;
-  background: linear-gradient(135deg, #00e676, #009688);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 8px;
-}
-.btn:hover { opacity: 0.9; }
-.info {
-  font-size: 12px;
-  color: #667788;
-  margin-top: 10px;
-  text-align: center;
-}
-.salvo {
-  font-size: 11px;
-  color: #00e676;
-  text-align: center;
-  margin-top: 4px;
-  visibility: hidden;
-}
-.salvo.visivel { visibility: visible; }
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:       #09111a;
+    --bg2:      #0e1c2b;
+    --bg3:      #152336;
+    --green:    #00e676;
+    --green2:   #00c853;
+    --red:      #ff3d57;
+    --yellow:   #ffd600;
+    --muted:    #4a6072;
+    --text:     #cdd8e3;
+    --radius:   10px;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    width: 320px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 0;
+    user-select: none;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0a1f33 0%, #0e2a42 100%);
+    padding: 14px 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #1a3048;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '✈';
+    position: absolute;
+    right: -8px;
+    top: -4px;
+    font-size: 52px;
+    opacity: 0.06;
+    transform: rotate(15deg);
+  }
+  .header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), #009688);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .header-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: 0.3px; }
+  .version-badge {
+    margin-left: auto;
+    background: var(--bg3);
+    border: 1px solid #1e3550;
+    color: var(--muted);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  /* CONEXÃO */
+  .conn-bar {
+    margin: 12px 14px 0;
+    background: var(--bg2);
+    border-radius: var(--radius);
+    border: 1px solid #1a2e42;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conn-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+    transition: background 0.4s;
+  }
+  .conn-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 4px var(--green); }
+    50%      { box-shadow: 0 0 12px var(--green); }
+  }
+  .conn-label { font-size: 12px; font-weight: 600; color: var(--text); }
+  .conn-value { margin-left: auto; font-size: 12px; font-weight: 600; }
+  .conn-value.on  { color: var(--green); }
+  .conn-value.off { color: var(--red); }
+
+  /* STATS GRID */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid #1a2e42;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-value { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-card.wide { grid-column: 1 / -1; }
+  .stat-card.wide .stat-value { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* PAINEL INFO */
+  .painel-info {
+    margin: 0 14px 10px;
+    background: var(--bg3);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    border: 1px solid #1e3550;
+  }
+  .painel-info strong { color: #7899aa; }
+
+  /* TOKEN */
+  .section { padding: 0 14px 12px; }
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .input-row { display: flex; gap: 6px; }
+  .input-token {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg2);
+    border: 1px solid #1e3550;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-token:focus { border-color: var(--green); }
+  .btn-save {
+    padding: 9px 16px;
+    background: linear-gradient(135deg, var(--green), var(--green2));
+    border: none;
+    border-radius: 8px;
+    color: #00150a;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn-save:hover  { opacity: 0.9; }
+  .btn-save:active { transform: scale(0.97); }
+  .msg-salvo {
+    font-size: 11px;
+    color: var(--green);
+    margin-top: 5px;
+    min-height: 16px;
+    font-weight: 500;
+    transition: opacity 0.3s;
+    opacity: 0;
+  }
+  .msg-salvo.show { opacity: 1; }
+
+  /* FOOTER */
+  .footer {
+    padding: 8px 14px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footer-link {
+    font-size: 10px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-link:hover { color: var(--text); }
+  .footer-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
 </style>
 </head>
 <body>
-<h1>Coletor Betou</h1>
 
-<div class="status">
-  <div class="status-item">
-    <span class="label">Conexão</span>
-    <span id="statusConexao" class="desconectado">Desconectado</span>
+<!-- HEADER -->
+<div class="header">
+  <div class="header-icon">✈</div>
+  <div>
+    <div class="header-title">Betou Coletor</div>
+    <div class="header-sub">Painel Aviator · Coleta em tempo real</div>
   </div>
-  <div class="status-item">
-    <span class="label">Última vela</span>
-    <span id="ultimaVela">—</span>
+  <div class="version-badge">v3.0</div>
+</div>
+
+<!-- CONEXÃO -->
+<div class="conn-bar">
+  <div class="conn-dot" id="dot"></div>
+  <span class="conn-label">Status do servidor</span>
+  <span class="conn-value off" id="statusConexao">Desconectado</span>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Rodadas enviadas</div>
+    <div class="stat-value green" id="totalEnviadas">0</div>
   </div>
-  <div class="status-item">
-    <span class="label">Total enviadas</span>
-    <span id="totalEnviadas">0</span>
+  <div class="stat-card">
+    <div class="stat-label">Abas Betou</div>
+    <div class="stat-value yellow" id="abasAbertas">0</div>
   </div>
-  <div class="status-item">
-    <span class="label">Abas Betou abertas</span>
-    <span id="abasAbertas">0</span>
+  <div class="stat-card wide">
+    <div class="stat-label">Última vela capturada</div>
+    <div class="stat-value" id="ultimaVela">—</div>
   </div>
 </div>
 
-<div class="campo">
-  <label>Token do cliente</label>
-  <input type="text" id="inputToken" placeholder="default">
+<!-- PAINEL MAPEAMENTO -->
+<div class="painel-info">
+  <strong>Mapeamento de painéis:</strong><br>
+  betou.bet.br/games/.../aviator &nbsp;→&nbsp; <strong style="color:#00e676">Painel 2</strong><br>
+  betou.bet.br/games/.../aviator2 &nbsp;→&nbsp; <strong style="color:#ffd600">Painel 1</strong>
 </div>
 
-<div class="info">
-  <strong>Mapeamento:</strong><br>
-  Betou /aviator → Painel Aviator 2<br>
-  Betou /aviator2 → Painel Aviator 1
+<!-- TOKEN -->
+<div class="section">
+  <div class="section-label">Token do cliente</div>
+  <div class="input-row">
+    <input type="text" class="input-token" id="inputToken" placeholder="default" spellcheck="false" autocomplete="off">
+    <button class="btn-save" id="btnSalvar">Salvar</button>
+  </div>
+  <div class="msg-salvo" id="msgSalvo">✓ Token salvo com sucesso!</div>
 </div>
 
-<button class="btn" id="btnSalvar">Salvar Token</button>
-<div class="salvo" id="msgSalvo">Salvo!</div>
+<!-- FOOTER -->
+<div class="footer">
+  <a class="footer-link" href="https://painel-aviator.onrender.com" target="_blank">Abrir painel ↗</a>
+  <div class="footer-dot"></div>
+  <span class="footer-link">Betou Coletor © 2025</span>
+</div>
 
 <script>
-const inputToken = document.getElementById('inputToken');
-const btnSalvar = document.getElementById('btnSalvar');
-const msgSalvo = document.getElementById('msgSalvo');
+const inputToken   = document.getElementById('inputToken');
+const btnSalvar    = document.getElementById('btnSalvar');
+const msgSalvo     = document.getElementById('msgSalvo');
+const dot          = document.getElementById('dot');
+const elConexao    = document.getElementById('statusConexao');
+const elVela       = document.getElementById('ultimaVela');
+const elTotal      = document.getElementById('totalEnviadas');
+const elAbas       = document.getElementById('abasAbertas');
 
+// Carrega token salvo
 chrome.storage.sync.get(['token'], (cfg) => {
   inputToken.value = cfg.token || '';
 });
 
+// Salva token
 btnSalvar.addEventListener('click', () => {
-  chrome.storage.sync.set({ token: inputToken.value }, () => {
-    msgSalvo.style.visibility = 'visible';
-    setTimeout(() => { msgSalvo.style.visibility = 'hidden'; }, 2000);
+  const val = inputToken.value.trim();
+  chrome.storage.sync.set({ token: val || 'default' }, () => {
+    msgSalvo.classList.add('show');
+    setTimeout(() => msgSalvo.classList.remove('show'), 2500);
   });
 });
 
-function atualizarUI(status) {
-  document.getElementById('statusConexao').textContent = status.conectada ? 'Conectado' : 'Desconectado';
-  document.getElementById('statusConexao').className = status.conectada ? 'conectado' : 'desconectado';
-  document.getElementById('ultimaVela').textContent = status.ultimaVela || '—';
-  document.getElementById('totalEnviadas').textContent = status.totalEnviadas || 0;
-  document.getElementById('abasAbertas').textContent = status.abasAbertas || 0;
+// Atualiza UI
+function atualizarUI(s) {
+  const ok = !!s.conectada;
+  dot.className = 'conn-dot' + (ok ? ' on' : '');
+  elConexao.textContent = ok ? 'Conectado' : 'Desconectado';
+  elConexao.className   = 'conn-value ' + (ok ? 'on' : 'off');
+  elVela.textContent    = s.ultimaVela   || '—';
+  elTotal.textContent   = (s.totalEnviadas || 0).toLocaleString('pt-BR');
+  elAbas.textContent    = s.abasAbertas  || 0;
 }
 
+// Escuta atualizações em tempo real
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.tipo === 'statusAtualizado') atualizarUI(msg);
 });
 
+// Pede status ao abrir o popup
 chrome.runtime.sendMessage({ tipo: 'getStatus' });
 </script>
 </body>
