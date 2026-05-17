@@ -8,7 +8,7 @@ from flask_cors import CORS
 from data_collector import DataCollector
 from database import init_db, criar_cliente, listar_clientes, get_cliente_por_id
 from database import get_cliente_por_token, get_cliente_por_slug, editar_cliente, toggle_bloqueio, atualizar_slug
-from database import atualizar_online, get_estatisticas, exportar_relatorio
+from database import atualizar_online, get_estatisticas, exportar_relatorio, excluir_cliente_db
 from auth import login_master, login_cliente, logout, master_required, cliente_required
 import config
 import os
@@ -235,6 +235,15 @@ def admin_alterar_slug(id):
     resultado = atualizar_slug(id, slug)
     if not resultado['ok']:
         return render_template('admin/clientes.html', erro=resultado['erro'], clientes=listar_clientes())
+    return redirect('/admin/clientes')
+
+@app.route('/admin/clientes/<int:id>/excluir', methods=['POST'])
+@master_required
+def admin_excluir_cliente(id):
+    if excluir_cliente_db(id):
+        flash('Cliente excluído com sucesso!', 'success')
+    else:
+        flash('Erro ao excluir cliente.', 'error')
     return redirect('/admin/clientes')
 
 @app.route('/admin/clientes/<int:id>')

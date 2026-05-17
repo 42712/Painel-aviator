@@ -79,6 +79,16 @@
         .card.roxa .numero { color: #913EF8; }
         .card.rosa .numero { color: #FF2D95; }
         .card.verde .numero { color: #00ff88; }
+        .relogio-master {
+            font-size: 28px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #349CFF, #913EF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
 
         @media (max-width: 768px) {
             .sidebar { width: 60px; padding: 20px 10px; }
@@ -99,6 +109,7 @@
     </div>
     <div class="content">
         <h1>📊 Dashboard</h1>
+        <div class="relogio-master" id="relogioMaster">00:00:00</div>
         <div class="cards">
             <div class="card roxa">
                 <div class="numero">{{ stats.total }}</div>
@@ -127,5 +138,16 @@
             </p>
         </div>
     </div>
+    <script>
+        function atualizarRelogio() {
+            const agora = new Date();
+            const h = String(agora.getHours()).padStart(2, '0');
+            const m = String(agora.getMinutes()).padStart(2, '0');
+            const s = String(agora.getSeconds()).padStart(2, '0');
+            document.getElementById('relogioMaster').textContent = h + ':' + m + ':' + s;
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+    </script>
 </body>
 </html>

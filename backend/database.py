@@ -226,6 +226,17 @@ def atualizar_online(cliente_id, online=True):
     conn.commit()
     conn.close()
 
+def excluir_cliente_db(cliente_id):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        conn.close()
+        return False
+
 
 def get_estatisticas():
     conn = get_db()
