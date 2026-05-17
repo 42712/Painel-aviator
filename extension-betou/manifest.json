@@ -1,19 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Painel Aviator - Betou Coletor",
-  "version": "3.2",
+  "version": "4.0",
   "description": "Coleta dados do Aviator da Betou em tempo real e envia para o painel",
   "permissions": [
-    "storage",
-    "tabs",
     "activeTab",
-    "scripting"
+    "alarms",
+    "background"
   ],
   "host_permissions": [
-    "https://betou.bet.br/*",
-    "https://*.betou.bet.br/*",
-    "https://spribegaming.com/*",
     "https://*.spribegaming.com/*",
+    "https://*.betou.bet.br/*",
     "https://painel-aviator.onrender.com/*"
   ],
   "background": {
@@ -23,20 +20,12 @@
   "content_scripts": [
     {
       "matches": [
-        "https://betou.bet.br/games/spribe/aviator*",
-        "https://*.betou.bet.br/games/spribe/aviator*",
-        "https://betou.bet.br/*aviator*",
-        "https://*.betou.bet.br/*aviator*",
-        "https://betou.bet.br/*",
-        "https://*.betou.bet.br/*",
-        "https://spribegaming.com/*",
-        "https://*.spribegaming.com/*"
+        "https://*.spribegaming.com/*",
+        "https://*.betou.bet.br/*"
       ],
       "js": ["content.js"],
-      "run_at": "document_start",
       "all_frames": true,
-      "match_about_blank": true,
-      "match_origin_as_fallback": true
+      "run_at": "document_idle"
     }
   ],
   "action": {

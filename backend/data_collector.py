@@ -24,12 +24,14 @@ class DataCollector:
     def iniciar(self):
         """Inicia a coleta de dados - modo híbrido"""
         self.running = True
-        # Sempre inicia com simulados como fallback
-        self._thread = threading.Thread(target=self._simular_coleta, daemon=True)
-        self._thread.start()
 
-        # Se for modo real, tenta conectar WebSocket também
-        if not SIMULAR_DADOS:
+        if SIMULAR_DADOS:
+            # Modo simulado para testes/desenvolvimento
+            self._thread = threading.Thread(target=self._simular_coleta, daemon=True)
+            self._thread.start()
+        else:
+            # Modo real - apenas dados da extensão via webhook
+            print("[DataCollector] Modo real ativo - aguardando dados da extensão")
             self._ws_thread = threading.Thread(target=self._coletar_sorte_bet, daemon=True)
             self._ws_thread.start()
 
@@ -72,9 +74,10 @@ class DataCollector:
         import websocket as ws
 
         if not WS_SORTE_BET_URL:
-            print("[ERRO] WS_SORTE_BET_URL não configurado. Use SIMULAR_DADOS=true ou configure.")
-            # Fallback para simulação
-            self._simular_coleta()
+            print("[ERRO] WS_SORTE_BET_URL não configurado. Aguardando dados via webhook da extensão.")
+            # Apenas mantém vivo - dados chegam via extensão
+            while self.running:
+                time.sleep(10)
             return
 
         def on_message(ws_app, message):
