@@ -196,7 +196,10 @@ def admin_criar_cliente():
     senha = request.form.get('senha')
     nome = request.form.get('nome', '')
     observacao = request.form.get('observacao', '')
-    tempo = int(request.form.get('tempo_acesso', 0))
+    tempo_valor = int(request.form.get('tempo_valor', 0))
+    tempo_unidade = request.form.get('tempo_unidade', 'minutos')
+    fatores = {'minutos': 1, 'horas': 60, 'dias': 1440}
+    tempo = tempo_valor * fatores.get(tempo_unidade, 1)
     slug = request.form.get('slug', '').strip() or None
     resultado = criar_cliente(login, senha, nome, observacao, tempo, slug)
     if resultado['ok']:
@@ -211,9 +214,11 @@ def admin_editar_cliente(id):
         val = request.form.get(campo)
         if val is not None:
             dados[campo] = val
-    tempo = request.form.get('tempo_acesso')
-    if tempo is not None:
-        dados['tempo_acesso'] = int(tempo)
+    tempo_valor = request.form.get('tempo_valor')
+    tempo_unidade = request.form.get('tempo_unidade', 'minutos')
+    if tempo_valor is not None:
+        fatores = {'minutos': 1, 'horas': 60, 'dias': 1440}
+        dados['tempo_acesso'] = int(tempo_valor) * fatores.get(tempo_unidade, 1)
     senha = request.form.get('senha')
     if senha:
         dados['senha'] = senha

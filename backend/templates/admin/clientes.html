@@ -174,8 +174,15 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Tempo de Acesso (minutos)</label>
-                        <input type="number" name="tempo_acesso" value="0" min="0" placeholder="0 = ilimitado">
+                        <label>Tempo de Acesso</label>
+                        <div style="display:flex;gap:5px;">
+                            <input type="number" name="tempo_valor" id="criarTempoValor" value="0" min="0" style="flex:1;" placeholder="0 = ilimitado">
+                            <select name="tempo_unidade" id="criarTempoUnidade" style="width:100px;">
+                                <option value="minutos">Minutos</option>
+                                <option value="horas">Horas</option>
+                                <option value="dias">Dias</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Observação</label>
@@ -285,7 +292,14 @@
                 </div>
                 <div class="form-group">
                     <label>Tempo de Acesso (minutos, 0 = ilimitado)</label>
-                    <input type="number" name="tempo_acesso" id="editarTempo" min="0">
+                    <div style="display:flex;gap:5px;">
+                        <input type="number" name="tempo_valor" id="editarTempoValor" min="0" style="flex:1;">
+                        <select name="tempo_unidade" id="editarTempoUnidade" style="width:100px;">
+                            <option value="minutos">Minutos</option>
+                            <option value="horas">Horas</option>
+                            <option value="dias">Dias</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Slug (link personalizado)</label>
@@ -302,9 +316,17 @@
             document.getElementById('editarLogin').value = login;
             document.getElementById('editarNome').value = nome;
             document.getElementById('editarObs').value = obs;
-            document.getElementById('editarTempo').value = tempo;
+            const [tv, tu] = converterMinutos(tempo);
+            document.getElementById('editarTempoValor').value = tv;
+            document.getElementById('editarTempoUnidade').value = tu;
             document.getElementById('editarSlug').value = slug || '';
             document.getElementById('modalEditar').style.display = 'flex';
+        }
+        function converterMinutos(min) {
+            if (min === 0) return [0, 'minutos'];
+            if (min % 1440 === 0) return [min / 1440, 'dias'];
+            if (min % 60 === 0) return [min / 60, 'horas'];
+            return [min, 'minutos'];
         }
         function fecharModal() {
             document.getElementById('modalEditar').style.display = 'none';
