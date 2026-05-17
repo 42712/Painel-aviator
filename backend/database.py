@@ -51,11 +51,19 @@ def init_db():
         cursor.execute("INSERT INTO master (email, senha_hash) VALUES (?, ?)",
                      ("marcosduarte356@gmail.com", hash_senha))
 
-    # Adiciona coluna slug se não existir (migração)
+    # Migração: adiciona coluna slug se não existir
+    # NOTA: SQLite não permite UNIQUE em ALTER TABLE ADD COLUMN,
+    # então a unicidade é garantida via application code (try/except IntegrityError)
     try:
-        cursor.execute("ALTER TABLE clientes ADD COLUMN slug TEXT UNIQUE DEFAULT NULL")
+        cursor.execute("ALTER TABLE clientes ADD COLUMN slug TEXT DEFAULT NULL")
     except sqlite3.OperationalError:
         pass  # Coluna já existe
+
+    # Cria índice único para slug (operação separada do ADD COLUMN)
+    try:
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_slug ON clientes(slug)")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -99,7 +107,8 @@ def criar_cliente(login, senha, nome="", observacao="", tempo_acesso=0, slug=Non
 def listar_clientes():
     conn = get_db()
     rows = conn.execute("""SELECT id, token, login, nome, observacao, bloqueado,
-                                  tempo_acesso, criado_em, ultimo_acesso, online
+                                  tempo_acesso, criado_em, ultimo_acesso, online,
+                                  slug
                            FROM clientes ORDER BY criado_em DESC""").fetchall()
     conn.close()
     return [dict(r) for r in rows]
