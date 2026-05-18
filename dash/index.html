@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Aviator - Velas em Tempo Real</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .vela-container {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 30px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vela-multiplicador {
+            font-size: 80px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+        .vela-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            font-size: 20px;
+            color: #aaa;
+        }
+        .vela-info div {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 20px;
+            border-radius: 50px;
+        }
+        .vela-info strong {
+            color: #fff;
+            margin-right: 8px;
+        }
+        .historico-title {
+            color: #fff;
+            margin: 20px 0 15px;
+            font-size: 24px;
+            text-align: center;
+        }
+        .historico-velas {
+            background: #111122;
+            border-radius: 20px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .historico-item {
+            background: rgba(255,255,255,0.05);
+            margin: 8px 0;
+            padding: 12px 20px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .historico-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        .historico-multiplicador {
+            font-size: 24px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        .historico-rodada, .historico-horario, .historico-soma {
+            color: #aaa;
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            color: #4CAF50;
+            font-size: 14px;
+        }
+        .status.offline {
+            color: #f44336;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 10px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.98); }
+        }
+        .vela-container.nova {
+            animation: blink 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="vela-container" id="velaContainer">
+            <div class="vela-multiplicador" id="multiplicador">--</div>
+            <div class="vela-info">
+                <div><strong>Rodada</strong> <span id="rodadaId">---</span></div>
+                <div><strong>Horário</strong> <span id="horario">--:--:--</span></div>
+                <div><strong>Soma</strong> <span id="soma">-</span></div>
+            </div>
+        </div>
+        
+        <h3 class="historico-title">📊 Últimas Rodadas</h3>
+        <div class="historico-velas" id="historico">
+            <div style="text-align:center;color:#666;">Carregando...</div>
+        </div>
+        <div class="status" id="status">🟢 Conectado em tempo real</div>
+    </div>
+
+    <script>
+        // Configuração
+        const uuid = window.location.pathname.split('/')[2];
+        let source = null;
+        
+        function getCor(num) {
+            const val = parseFloat(num);
+            if (val < 2) return '#888';
+            if (val < 5) return '#4CAF50';
+            if (val < 10) return '#2196F3';
+            if (val < 20) return '#FF9800';
+            return '#f44336';
+        }
+        
+        function atualizarVela(rodada) {
+            const container = document.getElementById('velaContainer');
+            const multEl = document.getElementById('multiplicador');
+            const rodadaEl = document.getElementById('rodadaId');
+            const horarioEl = document.getElementById('horario');
+            const somaEl = document.getElementById('soma');
+            
+            if (multEl) {
+                multEl.textContent = `${rodada.multiplicador}x`;
+                multEl.style.color = getCor(rodada.multiplicador);
+            }
+            if (rodadaEl) rodadaEl.textContent = `#${rodada.rodada_id}`;
+            if (horarioEl) horarioEl.textContent = rodada.horario;
+            if (somaEl) somaEl.textContent = rodada.soma;
+            
+            // Animação
+            container.classList.add('nova');
+            setTimeout(() => container.classList.remove('nova'), 300);
+        }
+        
+        function carregarHistorico() {
+            fetch(`/api/historico/${uuid}`)
+                .then(res => res.json())
+                .then(rodadas => {
+                    const container = document.getElementById('historico');
+                    if (rodadas.length === 0) {
+                        container.innerHTML = '<div style="text-align:center;color:#666;">Nenhuma rodada ainda</div>';
+                        return;
+                    }
+                    container.innerHTML = rodadas.map(r => `
+                        <div class="historico-item">
+                            <span class="historico-multiplicador" style="color: ${getCor(r.multiplicador)}">${r.multiplicador}x</span>
+                            <span class="historico-rodada">#${r.rodada_id}</span>
+                            <span class="historico-horario">${r.horario}</span>
+                            <span class="historico-soma">Soma: ${r.soma}</span>
+                        </div>
+                    `).join('');
+                    
+                    // Se tiver rodadas, mostra a última na vela
+                    if (rodadas.length > 0) atualizarVela(rodadas[0]);
+                });
+        }
+        
+        function conectarSSE() {
+            if (source) source.close();
+            source = new EventSource('/api/stream');
+            
+            source.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.tipo === 'nova_rodada' && data.rodada) {
+                    atualizarVela(data.rodada);
+                    carregarHistorico(); // Recarrega histórico
+                    document.getElementById('status').innerHTML = '🟢 Atualizado em tempo real';
+                    document.getElementById('status').className = 'status';
+                }
+            };
+            
+            source.onerror = () => {
+                document.getElementById('status').innerHTML = '🔴 Reconectando...';
+                document.getElementById('status').className = 'status offline';
+                setTimeout(conectarSSE, 3000);
+            };
+        }
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarHistorico();
+            conectarSSE();
+        });
+    </script>
+</body>
+</html>
