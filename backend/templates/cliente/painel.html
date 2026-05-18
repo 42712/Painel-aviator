@@ -595,40 +595,43 @@
             document.getElementById('totalMinutagem').textContent = velas.length + ' velas';
         }
 
-        // ===== POLLING FALLBACK (SSE cai no Render free tier) =====
-        let pollingAtivo = false;
-        let pollingInterval = null;
-
-        evtSource.onerror = function() {
-            if (!pollingAtivo) {
-                console.log('[Polling] SSE falhou, ativando polling fallback');
-                pollingAtivo = true;
-                pollingInterval = setInterval(function() {
-                    for (var n = 1; n <= 2; n++) {
-                        (function(num) {
-                            fetch('/api/' + num + '/ultimas').then(function(r) { return r.json(); }).then(function(d) {
-                                if (Array.isArray(d) && d.length) {
-                                    var arr = num === 1 ? todasVelas1 : todasVelas2;
-                                    if (d.length > arr.length) {
-                                        arr.length = 0;
-                                        arr.push.apply(arr, d);
+        // ===== POLLING CONTINUO (Render free tier derruba SSE) =====
+        for (var n = 1; n <= 2; n++) {
+            (function(num) {
+                setInterval(function() {
+                    fetch('/api/' + num + '/ultimas')
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            if (!Array.isArray(d) || !d.length) return;
+                            var arr = num === 1 ? todasVelas1 : todasVelas2;
+                            var ultimoId = arr.length > 0 ? arr[arr.length-1].rodada : null;
+                            if (ultimoId === null) {
+                                arr.length = 0;
+                                arr.push.apply(arr, d);
+                                if (aviatorAtivo === num) renderizarTudo();
+                                return;
+                            }
+                            // Procura o ultimo ID conhecido e pega só as novas
+                            for (var i = d.length - 1; i >= 0; i--) {
+                                if (d[i].rodada === ultimoId) {
+                                    var novas = d.slice(i + 1);
+                                    if (novas.length > 0) {
+                                        for (var j = 0; j < novas.length; j++) {
+                                            arr.push(novas[j]);
+                                        }
                                         if (aviatorAtivo === num) renderizarTudo();
                                     }
+                                    return;
                                 }
-                            }).catch(function(){});
-                        })(n);
-                    }
-                }, 5000);
-            }
-        };
-
-        evtSource.onopen = function() {
-            if (pollingAtivo) {
-                pollingAtivo = false;
-                if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
-                console.log('[Polling] SSE reconectou, polling desativado');
-            }
-        };
+                            }
+                            // Rodada ID nao encontrado = servidor resetou
+                            arr.length = 0;
+                            arr.push.apply(arr, d);
+                            if (aviatorAtivo === num) renderizarTudo();
+                        }).catch(function(){});
+                }, 3000);
+            })(n);
+        }
 
         // ===== TIMER =====
         function iniciarTimer() {

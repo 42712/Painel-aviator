@@ -146,14 +146,16 @@ function capturarPayout() {
       var mult = parseFloat(txt.replace('x', '').replace(',', '.'));
       if (isNaN(mult) || mult < 1 || mult > 100000) return;
 
-      // Estima a rodada pelo indice no historico
-      var rodadaEstimada = rodadaAtual ? (rodadaAtual - (payouts.length - 1 - idx)) : null;
+      // .payout[0] = mais recente = rodadaAtual-1, .payout[1] = rodadaAtual-2, etc
+      var rodadaEstimada = rodadaAtual ? (rodadaAtual - 1 - idx) : null;
 
       var key = (rodadaEstimada || 'hist_') + '_' + mult.toFixed(2) + '_' + idx;
       if (dedupSet.has(key)) return;
       dedupSet.add(key);
 
-      var horario = getTimeNow();
+      // Estima horario: cada vela ~35s atras, idx 0 = agora -35s, idx 9 = agora -350s
+      var horario = new Date(Date.now() - (idx + 1) * 35000);
+      horario = horario.toLocaleTimeString('pt-BR');
       console.log('[Betou] 📜 #' + (rodadaEstimada || '?') + ' ' + mult.toFixed(2) + 'x');
       addVela({ rodada: rodadaEstimada, multiplicador: mult, timestamp: horario, origem: 'historico' });
     });
