@@ -1,34 +1,49 @@
-// ===== Background - Betou Coletor v4.3 =====
-const SERVER_URL = "https://painel-aviator.onrender.com";
-let totalEnviadas = 0;
-let ultimaVela = null;
-let ultimoHeartbeat = 0;
+// Service worker - relay de mensagens entre content script e popup
+let estado = {
+  conectada: false,
+  ultimaVela: '—',
+  totalEnviadas: 0
+};
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create("heartbeat", { periodInMinutes: 1 });
-});
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create("heartbeat", { periodInMinutes: 1 });
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "heartbeat") {
-    fetch(`${SERVER_URL}/api/webhook`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heartbeat: true, token: 'default', aviator: 0, timestamp: new Date().toISOString() })
-    }).catch(() => {});
-    chrome.runtime.getPlatformInfo(() => {});
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  // Content script -> popup
+  if (sender.tab && msg.tipo === 'status') {
+    if (msg.ultimaVela) estado.ultimaVela = msg.ultimaVela;
+    if (msg.totalEnviadas !== undefined) estado.totalEnviadas += msg.totalEnviadas;
+    estado.conectada = msg.conectada;
+    chrome.runtime.sendMessage({ tipo: 'statusAtualizado', ...estado }).catch(() => {});
+    return false;
   }
-});
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.tipo === 'status') {
-    if (msg.ultimaVela) { ultimaVela = msg.ultimaVela; totalEnviadas = msg.totalEnviadas || totalEnviadas; }
-    try { chrome.runtime.sendMessage({ tipo: 'statusAtualizado', conectada: true, ultimaVela: ultimaVela || '—', totalEnviadas, abasAbertas: 1 }); } catch(e) {}
+  // Popup -> buscar estado atual
+  if (msg.tipo === 'getStatus') {
+    chrome.tabs.query({
+      url: [
+        'https://*.betou.bet.br/*',
+        'https://*.spribegaming.com/*'
+      ]
+    }, (tabs) => {
+      chrome.runtime.sendMessage({
+        tipo: 'statusAtualizado',
+        conectada: estado.conectada,
+        ultimaVela: estado.ultimaVela,
+        totalEnviadas: estado.totalEnviadas,
+        abasAbertas: tabs ? tabs.length : 0
+      }).catch(() => {});
+    });
+    return true;
   }
-  if (msg.tipo === 'getStatus') sendResponse({ conectada: true, ultimaVela: ultimaVela || '—', totalEnviadas, abasAbertas: 1 });
-  if (msg.type === "AVIATOR_PING") sendResponse({ alive: true });
+
+  return false;
 });
 
-console.log('[Betou] Background v4.3');
+// Inicializa
+chrome.runtime.sendMessage({
+  tipo: 'statusAtualizado',
+  conectada: false,
+  ultimaVela: '—',
+  totalEnviadas: 0,
+  abasAbertas: 0
+}).catch(() => {});
+
+console.log('[Betou] Background v1.1');

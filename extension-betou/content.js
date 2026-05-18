@@ -1,235 +1,235 @@
-// ===== Content Script - Betou Coletor v4.3 =====
-(function() {
-  if (window.__BETOU_ATIVO) return;
-  window.__BETOU_ATIVO = true;
+// ===== Content Script - Betou Coletor (baseado na extensao que funciona) =====
+const SERVER_URL = "https://painel-aviator.onrender.com";
+const INTERVALO_ENVIO = 3;
+const DEBOUNCE_DOM = 800;
 
-  const SERVER_URL = "https://painel-aviator.onrender.com";
-  const isSpribe = location.hostname.includes('spribegaming');
-  const isBetou = location.hostname.includes('betou');
+const isSpribe = location.hostname.includes('spribegaming');
+const isBetou = location.hostname.includes('betou');
 
-  function log(...a) { console.log('[Betou v4.3]', ...a); }
-  log('Ativo |', location.hostname, location.href.substring(0,80));
+let ultimasVelas = [];
+let ultimoEnvio = 0;
+let rodadasVistas = new Set();
+let config = { token: 'default', aviator: 1 };
 
-  // ===== IDENTIFICA PAINEL (invertido: /aviator2 = painel 1) =====
-  function getPainel() {
-    try {
-      return (isBetou && location.href.includes('/aviator2')) ? 1 : 2;
-    } catch(e) { return 2; }
-  }
+// Carrega config do storage
+chrome.storage.sync.get(['token', 'aviator'], (cfg) => {
+  if (cfg.token) config.token = cfg.token;
+  if (cfg.aviator) config.aviator = parseInt(cfg.aviator);
+});
 
-  // ===== ENVIA PRO SERVIDOR =====
-  function enviar(rodada, mult, timestamp, origem) {
-    const numId = parseInt(rodada);
-    if (!numId || !mult || mult < 1) return;
-    fetch(`${SERVER_URL}/api/webhook`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        token: 'default',
-        aviator: getPainel(),
-        rodadas: [{ rodada: numId, multiplicador: mult, timestamp: timestamp || new Date().toLocaleTimeString('pt-BR'), origem: origem || 'dom', cor: null }]
-      }),
-      keepalive: true
-    }).catch(() => {});
-  }
+// ===== INVERSAO: /aviator2 no Betou = Painel 1 =====
+function getPainel() {
+  try {
+    if (isBetou && location.href.includes('/aviator2')) return 1;
+    return config.aviator || 1;
+  } catch(e) { return config.aviator || 1; }
+}
 
-  // ===================================================================
-  // SPRIBEGAMING (iframe) — intercepta WebSocket
-  // ===================================================================
-  if (isSpribe) {
-    log('Modo WebSocket');
-    let enviados = new Set();
-    const WS = window.WebSocket;
-    window.WebSocket = function(url, protos) {
-      const ws = new WS(url, protos);
+// ===== 1. CAPTURA VIA WEBSOCKET (funciona no iframe spribegaming) =====
+const NativeWS = window.WebSocket;
+
+window.WebSocket = new Proxy(NativeWS, {
+  construct(target, args) {
+    const ws = new target(...args);
+    ws.addEventListener('message', (event) => {
       try {
-        if (url.includes('spribe') || url.includes('spr')) {
-          ws.addEventListener('message', function(e) {
-            try {
-              const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-              if (!data) return;
-              let mult = null, round = null;
-              function scan(obj, depth) {
-                if (!obj || depth > 5) return;
-                if (Array.isArray(obj)) { obj.forEach(v => scan(v, depth+1)); return; }
-                if (typeof obj !== 'object') return;
-                for (const k of Object.keys(obj)) {
-                  if ((k === 'multiplier' || k === 'mult' || k === 'value' || k === 'multiplicador') && typeof obj[k] === 'number' && obj[k] > 0 && obj[k] < 100000) mult = obj[k];
-                  if ((k === 'round' || k === 'rodada' || k === 'r' || k === 'roundId') && typeof obj[k] === 'number') round = obj[k];
-                }
-                for (const k of Object.keys(obj)) {
-                  if (k === 'payload' || k === 'data' || k === 'result' || k === 'args') scan(obj[k], depth+1);
-                }
-              }
-              scan(data, 0);
-              if (mult && round && !enviados.has(round)) {
-                enviados.add(round);
-                if (enviados.size > 500) enviados = new Set([...enviados].slice(-250));
-                log('📡 WS:', round, mult.toFixed(2)+'x');
-                enviar(round, mult, null, 'websocket');
-              }
-            } catch(er) {}
-          });
+        const data = JSON.parse(event.data);
+        const rodada = extrairRodada(data);
+        if (rodada) adicionarVela(rodada);
+      } catch (e) { /* ignorado */ }
+    });
+    return ws;
+  }
+});
+
+// ===== 2. CAPTURA VIA DOM (fallback - funciona na pagina principal Betou) =====
+let timeoutDOM = null;
+let ultimoValorDOM = null;
+let ultimaRodadaDOM = null;
+
+const observer = new MutationObserver(() => {
+  if (timeoutDOM) return;
+  timeoutDOM = setTimeout(() => {
+    timeoutDOM = null;
+
+    // Tenta capturar o numero da rodada
+    let rodadaAtual = null;
+    const todosEl = document.querySelectorAll('span, div, h1, h2, h3, p, label, b, strong');
+    for (const el of todosEl) {
+      if (el.children.length) continue;
+      const txt = (el.innerText || el.textContent || "").trim();
+      const m = txt.match(/[Rr]odada\s+(\d{4,})/);
+      if (m) { rodadaAtual = m[1]; break; }
+      const mR = txt.match(/[Rr]ound\s+(\d{4,})/);
+      if (mR) { rodadaAtual = mR[1]; break; }
+    }
+
+    // Tenta capturar o multiplicador
+    const elementos = document.querySelectorAll(
+      '[class*="multiplicador"], [class*="multiplier"], ' +
+      '[class*="round"], [class*="rodada"], ' +
+      '.multiplier, .value, .round-number, ' +
+      '.bubble-multiplier, .payout'
+    );
+    elementos.forEach(el => {
+      const texto = el.textContent.trim();
+      const mult = parseFloat(texto.replace('x', '').replace(',', '.'));
+      if (mult && mult > 0 && mult < 100000) {
+        // Se mudou a rodada, reseta o tracking
+        if (rodadaAtual && rodadaAtual !== ultimaRodadaDOM) {
+          ultimoValorDOM = null;
+          ultimaRodadaDOM = rodadaAtual;
         }
-      } catch(e) {}
-      return ws;
-    };
-    window.WebSocket.prototype = WS.prototype;
-    window.WebSocket.CONNECTING = WS.CONNECTING;
-    window.WebSocket.OPEN = WS.OPEN;
-    window.WebSocket.CLOSING = WS.CLOSING;
-    window.WebSocket.CLOSED = WS.CLOSED;
-    return;
-  }
+        // So envia se o valor mudou (evita duplicatas do mesmo DOM)
+        if (mult === ultimoValorDOM) return;
+        ultimoValorDOM = mult;
 
-  // ===================================================================
-  // BETOU.BET.BR (frame principal) — DOM polling + timer
-  // ===================================================================
-  if (!isBetou) return;
-  log('Modo DOM');
-
-  let ultimaRodadaId = null;
-  let ultimoMultiplicador = null;
-  let enviadas = new Set();
-  let historicoSet = new Set();
-  let horarioAnterior = null;
-
-  // ===== TIMER REAL (observa o cronômetro do jogo) =====
-  function capturarTimer() {
-    try {
-      // Betou mostra o timer em vários formatos
-      const els = document.querySelectorAll('.header__info-time, .time-left, .cda-time, [class*="timer"], [class*="cron"]');
-      for (const el of els) {
-        const txt = (el.innerText || el.textContent || "").trim();
-        if (txt.match(/^\d{1,2}:\d{2}(:\d{2})?$/)) return txt;
+        const agora = Date.now();
+        const key = rodadaAtual ? `dom_${rodadaAtual}_${mult.toFixed(2)}` : `dom_${Math.floor(agora / 5000)}_${mult.toFixed(2)}`;
+        if (rodadasVistas.has(key)) return;
+        rodadasVistas.add(key);
+        adicionarVela({
+          rodada: rodadaAtual ? parseInt(rodadaAtual) : undefined,
+          multiplicador: mult,
+          timestamp: new Date().toLocaleTimeString('pt-BR'),
+          origem: 'dom',
+          capturado_em: agora
+        });
       }
-    } catch(e) {}
-    return null;
+    });
+  }, DEBOUNCE_DOM);
+});
+
+if (document.body) {
+  observer.observe(document.body, { childList: true, subtree: true });
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+// ===== 3. FUNCOES =====
+function extrairRodada(data) {
+  if (!data || typeof data !== 'object') return null;
+  // Formato 1: { round: 123, multiplier: 1.45 }
+  if (data.round && data.multiplier) {
+    return { rodada: data.round, mult: data.multiplier };
   }
-
-  function capturarRodada() {
-    try {
-      const spans = document.querySelectorAll('span.text-uppercase[class*="ng-tns-c"], span.text-uppercase');
-      for (const s of spans) {
-        const txt = (s.innerText || s.textContent || "").trim();
-        const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-        if (m) return m[1];
-        const m2 = txt.match(/^(\d{5,})$/);
-        if (m2) return m2[1];
-      }
-      const todos = document.querySelectorAll("span, div, h1, h2, h3, p, label, b, strong");
-      for (const el of todos) {
-        if (el.children.length) continue;
-        const txt = (el.innerText || el.textContent || "").trim();
-        const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-        if (m) return m[1];
-        const mR = txt.match(/[Rr]ound\s+(\d{4,})/);
-        if (mR) return mR[1];
-      }
-      const bodyText = document.body ? (document.body.innerText || "") : "";
-      const mBody = bodyText.match(/[Rr]odada\s+(\d{5,})/);
-      if (mBody) return mBody[1];
-    } catch(e) {}
-    return null;
+  // Formato 2: { rodada: 123, mult: 1.45 }
+  if (data.rodada && data.mult) {
+    return { rodada: data.rodada, mult: data.mult };
   }
-
-  function capturarMultiplicador() {
-    try {
-      let el = document.querySelector('.bubble-multiplier');
-      if (el) {
-        const v = parseFloat(el.innerText.replace('x','').replace(',','.').trim());
-        if (!isNaN(v) && v >= 1) return v;
-      }
-      const payouts = document.querySelectorAll(".payout");
-      if (payouts.length) {
-        const v = parseFloat(payouts[0].innerText.replace('x','').replace(',','.').trim());
-        if (!isNaN(v) && v >= 1) return v;
-      }
-    } catch(e) {}
-    return null;
+  // Formato 3: { id: 123, value: 1.45 }
+  if (data.id && data.value) {
+    return { rodada: data.id, mult: data.value };
   }
-
-  function capturarHorario() {
-    try {
-      const timeEl = document.querySelector('.header__info-time, app-fairness .header__info-time');
-      if (timeEl) {
-        const t = timeEl.innerText.trim();
-        if (t.match(/^\d{2}:\d{2}:\d{2}$/)) { horarioAnterior = t; return t; }
-      }
-      if (horarioAnterior) return horarioAnterior;
-    } catch(e) {}
-    return new Date().toLocaleTimeString('pt-BR');
+  // Formato 4: { r: 123, m: 1.45 }
+  if (data.r && data.m) {
+    return { rodada: data.r, mult: data.m };
   }
-
-  function monitorar() {
-    const rodadaId = capturarRodada();
-    const mult = capturarMultiplicador();
-    if (!rodadaId || !mult) return;
-
-    // Se mudou a rodada, envia a anterior
-    if (ultimaRodadaId !== null && rodadaId !== ultimaRodadaId && ultimoMultiplicador !== null) {
-      if (!enviadas.has(ultimaRodadaId)) {
-        enviadas.add(ultimaRodadaId);
-        if (enviadas.size > 500) enviadas = new Set([...enviadas].slice(-250));
-        const horario = capturarHorario();
-        log('✅ #'+ultimaRodadaId, ultimoMultiplicador.toFixed(2)+'x', horario);
-        enviar(ultimaRodadaId, ultimoMultiplicador, horario, 'dom');
-      }
-    }
-
-    if (rodadaId !== ultimaRodadaId) {
-      // Rodada nova: reseta rastreamento
-      ultimaRodadaId = rodadaId;
-      ultimoMultiplicador = mult;
-    } else {
-      // Mesma rodada: atualiza pro maior valor (pode ser bubble subindo)
-      ultimoMultiplicador = Math.max(ultimoMultiplicador, mult);
-    }
+  // Formato 5: { rodada: 123, multiplicador: 1.45 } (formato do backend)
+  if (data.rodada && data.multiplicador) {
+    return { rodada: data.rodada, mult: data.multiplicador };
   }
-
-  // ===== HISTÓRICO =====
-  function capturarHistorico() {
-    try {
-      const payouts = document.querySelectorAll('.payouts-wrapper .payouts-block .payout, app-stats-widget .payout');
-      if (!payouts.length) return;
-
-      const rodadaBase = parseInt(ultimaRodadaId) || Math.floor(Date.now() / 1000);
-      const tsEl = document.querySelector('app-stats-dropdown .header__info-time');
-      const horario = tsEl ? tsEl.textContent.trim() : capturarHorario();
-
-      payouts.forEach((el, idx) => {
-        const raw = (el.innerText || el.textContent || "").trim();
-        const value = parseFloat(raw.replace(/x/gi,"").replace(",",".").trim());
-        if (!value || isNaN(value) || value < 1 || value > 100000) return;
-
-        const rodadaHistorico = rodadaBase - (payouts.length - 1 - idx);
-        const chave = idx + '_' + rodadaHistorico;
-        if (historicoSet.has(chave) || enviadas.has(rodadaHistorico)) return;
-        historicoSet.add(chave);
-
-        log('📜 #'+rodadaHistorico, value.toFixed(2)+'x');
-        enviar(rodadaHistorico, value, horario, 'historico');
-      });
-    } catch(e) {}
+  // Formato 6: array
+  if (Array.isArray(data)) {
+    return extrairRodada(data[0]);
   }
+  // Formato 7: { data: { ... } }
+  if (data.data) {
+    return extrairRodada(data.data);
+  }
+  // Formato 8: { payload: { ... } } ou { result: { ... } } ou { args: { ... } }
+  if (data.payload) return extrairRodada(data.payload);
+  if (data.result) return extrairRodada(data.result);
+  if (data.args) return extrairRodada(data.args);
 
-  // ===== HEARTBEAT =====
-  function heartbeat() {
-    fetch(`${SERVER_URL}/api/webhook`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ heartbeat: true, token: 'default', aviator: getPainel(), timestamp: new Date().toISOString() }),
-      keepalive: true
+  return null;
+}
+
+function adicionarVela(rodada) {
+  const id = rodada.rodada || rodada.capturado_em || Date.now();
+  if (rodadasVistas.has(id)) return;
+  rodadasVistas.add(id);
+  if (rodadasVistas.size > 1000) {
+    rodadasVistas = new Set([...rodadasVistas].slice(-500));
+  }
+  ultimasVelas.push({ ...rodada, capturado_em: Date.now() });
+  if (ultimasVelas.length > 20) ultimasVelas = ultimasVelas.slice(-20);
+  enviarLote();
+}
+
+function enviarLote() {
+  const agora = Date.now();
+  if (agora - ultimoEnvio < INTERVALO_ENVIO * 1000) return;
+  if (ultimasVelas.length === 0) return;
+  ultimoEnvio = agora;
+  const lote = [...ultimasVelas];
+  ultimasVelas = [];
+
+  // Mapeia os campos para o formato que o backend espera
+  const rodadas = lote.map(v => ({
+    rodada: v.rodada || 0,
+    multiplicador: v.mult || v.multiplicador || 0,
+    timestamp: v.timestamp || new Date().toLocaleTimeString('pt-BR'),
+    origem: v.origem || 'extensao'
+  }));
+
+  fetch(`${SERVER_URL}/api/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fonte: 'extensao_betou',
+      token: config.token,
+      aviator: getPainel(),
+      rodadas: rodadas,
+      timestamp: new Date().toISOString()
+    })
+  }).then(() => {
+    chrome.runtime.sendMessage({
+      tipo: 'status',
+      conectada: true,
+      ultimaVela: lote.length > 0
+        ? `${(lote[lote.length-1].mult || lote[lote.length-1].multiplicador || 0).toFixed(2)}x`
+        : '—',
+      totalEnviadas: lote.length
     }).catch(() => {});
+  }).catch(() => {
+    // Re-coloca na fila em caso de erro
+    ultimasVelas.unshift(...lote);
+    if (ultimasVelas.length > 50) ultimasVelas = ultimasVelas.slice(-50);
+  });
+}
+
+// Heartbeat a cada 30s
+setInterval(() => {
+  fetch(`${SERVER_URL}/api/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fonte: 'extensao_betou',
+      token: config.token,
+      aviator: getPainel(),
+      heartbeat: true,
+      timestamp: new Date().toISOString()
+    })
+  }).then(() => {
+    chrome.runtime.sendMessage({ tipo: 'status', conectada: true }).catch(() => {});
+  }).catch(() => {});
+}, 30000);
+
+// Envio periodico forçado a cada 5s (garante que nada fique preso)
+setInterval(() => {
+  if (ultimasVelas.length > 0) {
+    ultimoEnvio = 0; // reseta pra forçar envio
+    enviarLote();
   }
+}, 5000);
 
-  // ===== START =====
-  setInterval(monitorar, 600);
-  setInterval(capturarHistorico, 5000);
-  setInterval(heartbeat, 30000);
+// Anti-throttle: mantem o service worker acordado
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+setInterval(() => {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}, 10000);
 
-  setTimeout(monitorar, 300);
-  setTimeout(monitorar, 1000);
-  setTimeout(monitorar, 2000);
-
-  log('=== BETOU v4.3 ATIVO ===');
-})();
+console.log(`[Betou Coletor] Ativo | ${location.hostname} | Painel ${getPainel()}`);
