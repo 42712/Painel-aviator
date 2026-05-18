@@ -1,47 +1,357 @@
+# Extensão Aviator Realtime — WebSocket + Rodada + Horário
+
+## manifest.json
+
+```json
 {
   "manifest_version": 3,
-  "name": "Painel Aviator - Betou Coletor",
-  "version": "4.3",
-  "description": "Coleta dados do Aviator da Betou em tempo real e envia para o painel",
+  "name": "Megatron Aviator Realtime WS",
+  "version": "5.0",
+  "description": "Captura velas, rodada e horário do Aviator em tempo real via WebSocket.",
+
   "permissions": [
-    "activeTab",
-    "alarms",
-    "background",
-    "storage"
+    "storage",
+    "activeTab"
   ],
+
   "host_permissions": [
     "https://*.spribegaming.com/*",
-    "https://*.betou.bet.br/*",
-    "https://painel-aviator.onrender.com/*"
+    "https://*.bet.br/*",
+    "https://*.aviatorx.app/*"
   ],
+
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
+
   "content_scripts": [
     {
       "matches": [
         "https://*.spribegaming.com/*",
-        "https://*.betou.bet.br/*"
+        "https://*.bet.br/*",
+        "https://*.aviatorx.app/*"
       ],
       "js": ["content.js"],
       "all_frames": true,
-      "run_at": "document_idle"
-    }
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "128": "icon.png"
-    }
-  },
-  "icons": {
-    "128": "icon.png"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["icon.png"],
-      "matches": ["<all_urls>"]
+      "run_at": "document_start"
     }
   ]
 }
+```
+
+---
+
+# background.js
+
+```javascript
+chrome.runtime.onInstalled.addListener(() => {
+    console.log("[MEGATRON WS] instalado");
+});
+
+chrome.runtime.onMessage.addListener((msg) => {
+
+    if (msg.type === "AVIATOR_DATA") {
+
+        console.log("🎯 AVIATOR:", msg.data);
+
+    }
+
+});
+```
+
+---
+
+# content.js
+
+```javascript
+(function () {
+
+    'use strict';
+
+    console.log('[MEGATRON] iniciado');
+
+    const OriginalWebSocket = window.WebSocket;
+
+    let lastMultiplier = null;
+    let lastRound = null;
+
+    function sendData(data) {
+
+        try {
+
+            chrome.runtime.sendMessage({
+                type: 'AVIATOR_DATA',
+                data
+            });
+
+        } catch (e) {}
+
+    }
+
+    function getTimeNow() {
+
+        const d = new Date();
+
+        return d.toLocaleTimeString('pt-BR');
+
+    }
+
+    function processMessage(raw) {
+
+        try {
+
+            const text = String(raw);
+
+            // ROUND ID
+            const roundMatch = text.match(/round(Id)?["=: ]+(\d+)/i);
+
+            if (roundMatch) {
+                lastRound = roundMatch[2];
+                console.log('🆔 ROUND:', lastRound);
+            }
+
+            // MULTIPLIER
+            const multMatch = text.match(/(\d+\.\d+)x?/);
+
+            if (multMatch) {
+
+                const mult = parseFloat(multMatch[1]);
+
+                if (!isNaN(mult) && mult >= 1) {
+
+                    if (mult !== lastMultiplier) {
+
+                        lastMultiplier = mult;
+
+                        const payload = {
+                            multiplier: mult,
+                            round: lastRound,
+                            time: getTimeNow(),
+                            raw: text
+                        };
+
+                        console.log('🎯 MULT:', payload);
+
+                        sendData(payload);
+
+                    }
+
+                }
+
+            }
+
+            // CRASH
+            const crashMatch = text.match(/crash["=: ]+([\d.]+)/i);
+
+            if (crashMatch) {
+
+                const payload = {
+                    type: 'CRASH',
+                    multiplier: parseFloat(crashMatch[1]),
+                    round: lastRound,
+                    time: getTimeNow(),
+                    raw: text
+                };
+
+                console.log('💥 CRASH:', payload);
+
+                sendData(payload);
+
+            }
+
+        } catch (err) {
+
+            console.warn('[MEGATRON] erro processando:', err);
+
+        }
+
+    }
+
+    window.WebSocket = function (...args) {
+
+        console.log('🟢 WS OPEN:', args[0]);
+
+        const ws = new OriginalWebSocket(...args);
+
+        // SEND
+        const originalSend = ws.send;
+
+        ws.send = function (data) {
+
+            console.log('📤 WS SEND:', data);
+
+            return originalSend.apply(this, arguments);
+
+        };
+
+        // RECEIVE
+        ws.addEventListener('message', async (event) => {
+
+            try {
+
+                let data = event.data;
+
+                if (data instanceof Blob) {
+                    data = await data.text();
+                }
+
+                console.log('📥 WS RECEIVE:', data);
+
+                // SockJS
+                if (typeof data === 'string' && data.startsWith('a[')) {
+
+                    const arr = JSON.parse(data);
+
+                    arr.forEach(msg => {
+
+                        console.log('📦 FRAME:', msg);
+
+                        processMessage(msg);
+
+                    });
+
+                } else {
+
+                    processMessage(data);
+
+                }
+
+            } catch (e) {
+
+                console.warn('[MEGATRON] erro ws:', e);
+
+            }
+
+        });
+
+        return ws;
+
+    };
+
+    // FALLBACK DOM
+    setInterval(() => {
+
+        try {
+
+            const payouts = document.querySelectorAll('.payout');
+
+            if (!payouts.length) return;
+
+            const last = payouts[0];
+
+            const txt = last.innerText.trim();
+
+            const mult = parseFloat(txt.replace('x', ''));
+
+            if (!isNaN(mult) && mult !== lastMultiplier) {
+
+                lastMultiplier = mult;
+
+                const payload = {
+                    type: 'DOM_FALLBACK',
+                    multiplier: mult,
+                    round: lastRound,
+                    time: getTimeNow()
+                };
+
+                console.log('🟣 DOM:', payload);
+
+                sendData(payload);
+
+            }
+
+        } catch (e) {}
+
+    }, 1000);
+
+})();
+```
+
+---
+
+# COMO INSTALAR
+
+1. Crie uma pasta:
+
+```text
+megatron-aviator
+```
+
+2. Coloque dentro:
+
+* manifest.json
+* background.js
+* content.js
+
+3. Abra:
+
+```text
+chrome://extensions
+```
+
+4. Ative:
+
+```text
+Modo Desenvolvedor
+```
+
+5. Clique:
+
+```text
+Carregar sem compactação
+```
+
+6. Escolha a pasta.
+
+---
+
+# O QUE ESSA EXTENSÃO FAZ
+
+✅ intercepta WebSocket do Aviator
+✅ captura mensagens STOMP/SockJS
+✅ tenta identificar round_id
+✅ tenta identificar multiplier
+✅ pega horário realtime
+✅ fallback DOM automático
+✅ logs completos no console
+
+---
+
+# COMO VER OS DADOS
+
+Abra:
+
+```text
+F12 → Console
+```
+
+Você verá:
+
+```text
+🎯 MULT:
+🆔 ROUND:
+💥 CRASH:
+📦 FRAME:
+```
+
+---
+
+# PRÓXIMO PASSO
+
+Quando aparecer no console um payload contendo:
+
+```json
+{
+  "roundId": 123,
+  "multiplier": 2.31
+}
+```
+
+você já terá:
+
+* rodada
+* vela
+* horário
+* realtime
+
+100% automático.
