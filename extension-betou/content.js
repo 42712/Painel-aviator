@@ -1,260 +1,161 @@
-// ===== Content Script - Betou Coletor v4.1 =====
+// ===== Content Script - Betou Coletor v4.3 =====
 (function() {
   if (window.__BETOU_COLETOR_ATIVO) return;
   window.__BETOU_COLETOR_ATIVO = true;
 
   const SERVER_URL = "https://painel-aviator.onrender.com";
   const LOG = true;
-  const isIframe = window.self !== window.top;
-  const hostname = window.location.hostname;
 
-  function log(...args) { if (LOG) console.log('[Betou v4]', ...args); }
+  function log(...args) { if (LOG) console.log('[Betou v4.3]', ...args); }
 
-  // Estado rastreamento de rodadas
-  let lastRoundId = null;
-  let currentMaxValue = null;
-  let sentRounds = new Set();
+  // Estado
+  let ultimaRodadaId = null;
+  let ultimoRegistro = '';
+  let rodadasEnviadas = new Set();
   let historicoCapturado = new Set();
   let configToken = 'default';
 
-  function limitSentRounds() {
-    if (sentRounds.size > 500) {
-      const arr = [...sentRounds];
-      sentRounds = new Set(arr.slice(-250));
-    }
-  }
-
-  // Carrega token do storage
+  // Carrega token
   try {
     chrome.storage.sync.get(['token'], (cfg) => {
       if (cfg.token) configToken = cfg.token;
-      log('Token carregado:', configToken);
+      log('Token:', configToken);
     });
   } catch(e) {}
 
-  log('Ativo | url=' + window.location.href.substring(0, 100));
-  log('iframe=' + isIframe);
-  log('dominio=' + hostname);
+  log('Ativo |', window.location.href.substring(0, 100));
 
-  // ===== ANTI-THROTTLE (AudioContext) =====
+  // ===== ANTI-THROTTLE =====
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    gain.gain.value = 0; osc.connect(gain); gain.connect(ctx.destination);
     osc.start();
     setInterval(() => { if (ctx.state === "suspended") ctx.resume(); }, 20000);
-    log('Anti-throttle OK');
   } catch(e) {}
 
-  // ===== COR RGB =====
-  function extractRgb(el) {
+  // ===== CAPTURA RODADA =====
+  function capturarRodada() {
     try {
-      const c = el.style.color;
-      if (c && c.startsWith("rgb")) return c.replace(/[^0-9,]/g,"").replace(/,$/,"");
-      const comp = window.getComputedStyle(el).color;
-      if (comp && comp.startsWith("rgb")) return comp.replace(/[^0-9,]/g,"").replace(/,$/,"");
-    } catch(e) {}
-    return null;
-  }
-
-  // ===== COMPARTILHAMENTO DO NÚMERO DA RODADA ENTRE FRAMES =====
-  // No iframe Spribe não enxerga o DOM da Betou.
-  // Quem achar a rodada primeiro salva no storage.local para todos usarem.
-
-  function salvarRodadaGlobal(round) {
-    if (!round) return;
-    try {
-      chrome.storage.local.set({ rodadaCompartilhada: round, rodadaAtualizadaEm: Date.now() });
-    } catch(e) {}
-  }
-
-  function carregarRodadaGlobal() {
-    return new Promise((resolve) => {
-      try {
-        chrome.storage.local.get(['rodadaCompartilhada', 'rodadaAtualizadaEm'], (r) => {
-          if (r.rodadaCompartilhada && r.rodadaAtualizadaEm && Date.now() - r.rodadaAtualizadaEm < 30000) {
-            resolve(String(r.rodadaCompartilhada));
-          } else {
-            resolve(null);
-          }
-        });
-      } catch(e) { resolve(null); }
-    });
-  }
-
-  // ===== NÚMERO DA RODADA =====
-  async function extractRound() {
-    // Se for iframe Spribe, tenta ler rodada compartilhada primeiro
-    if (isIframe && hostname.includes('spribegaming')) {
-      const r = await carregarRodadaGlobal();
-      if (r) { log('Rodada compartilhada:', r); return r; }
-    }
-
-    try {
-      // Se for página Betou (top), busca no DOM direto
-      if (!isIframe || hostname.includes('betou')) {
-        // Método 1: Betou - span.text-uppercase com número da rodada
-        const spans = document.querySelectorAll('span.text-uppercase[class*="ng-tns-c"], span.text-uppercase');
-        for (const span of spans) {
-          const txt = (span.innerText || span.textContent || "").trim();
-          const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-          if (m) { salvarRodadaGlobal(m[1]); log('Rodada:', m[1]); return m[1]; }
-          const m2 = txt.match(/^(\d{5,})$/);
-          if (m2) { salvarRodadaGlobal(m2[1]); log('Rodada:', m2[1]); return m2[1]; }
-        }
-
-        // Método 2: qualquer span/div com "Rodada XXXXX"
-        const all = document.querySelectorAll("span, div, h1, h2, h3, p, label, b, strong");
-        for (const el of all) {
-          if (el.children.length > 0) continue;
-          const txt = (el.innerText || el.textContent || "").trim();
-          const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-          if (m) { salvarRodadaGlobal(m[1]); log('Rodada:', m[1]); return m[1]; }
-          const mR = txt.match(/[Rr]ound\s+(\d{4,})/);
-          if (mR) { salvarRodadaGlobal(mR[1]); log('Round:', mR[1]); return mR[1]; }
-        }
-
-        // Método 3: body text
-        const bodyText = document.body ? (document.body.innerText || "") : "";
-        const mBody = bodyText.match(/[Rr]odada\s+(\d{5,})/);
-        if (mBody) { salvarRodadaGlobal(mBody[1]); log('Rodada body:', mBody[1]); return mBody[1]; }
+      const spans = document.querySelectorAll('span.text-uppercase[class*="ng-tns-c"], span.text-uppercase');
+      for (const span of spans) {
+        const txt = (span.innerText || span.textContent || "").trim();
+        const m = txt.match(/[Rr]odada\s+(\d{4,})/);
+        if (m) return m[1];
+        const m2 = txt.match(/^(\d{5,})$/);
+        if (m2) return m2[1];
       }
-
-    } catch(e) { log('Erro round:', e.message); }
-
-    // Último fallback: tenta ler do storage
-    const r = await carregarRodadaGlobal();
-    if (r) return r;
-
+      const all = document.querySelectorAll("span, div, h1, h2, h3, p, label, b, strong");
+      for (const el of all) {
+        if (el.children.length > 0) continue;
+        const txt = (el.innerText || el.textContent || "").trim();
+        const m = txt.match(/[Rr]odada\s+(\d{4,})/);
+        if (m) return m[1];
+        const mR = txt.match(/[Rr]ound\s+(\d{4,})/);
+        if (mR) return mR[1];
+      }
+      const bodyText = document.body ? (document.body.innerText || "") : "";
+      const mBody = bodyText.match(/[Rr]odada\s+(\d{5,})/);
+      if (mBody) return mBody[1];
+    } catch(e) {}
     return null;
   }
 
-  // ===== CAPTURA POR SELETOR DINÂMICO =====
-  function getAviatorPainel() {
+  // ===== CAPTURA MULTIPLICADOR =====
+  function capturarMultiplicador() {
     try {
-      const topUrl = window.top.location.href;
-      return topUrl.includes('/aviator2') ? 1 : 2;
-    } catch(_) {
+      let el = document.querySelector('.bubble-multiplier');
+      if (el) {
+        const v = parseFloat(el.innerText.replace('x', '').replace(',', '.').trim());
+        if (!isNaN(v) && v >= 1) return v;
+      }
+      let payouts = document.querySelectorAll(".payout");
+      if (payouts.length) {
+        const v = parseFloat(payouts[0].innerText.replace('x', '').replace(',', '.').trim());
+        if (!isNaN(v) && v >= 1) return v;
+      }
+      const iframes = document.querySelectorAll("iframe");
+      for (const fr of iframes) {
+        try {
+          const d = fr.contentDocument; if (!d) continue;
+          el = d.querySelector('.bubble-multiplier');
+          if (el) {
+            const v = parseFloat(el.innerText.replace('x', '').replace(',', '.').trim());
+            if (!isNaN(v) && v >= 1) return v;
+          }
+        } catch(e) {}
+      }
+    } catch(e) {}
+    return null;
+  }
+
+  // ===== CAPTURA HORÁRIO =====
+  function capturarHorario() {
+    try {
+      const timeEl = document.querySelector('.header__info-time, app-fairness .header__info-time');
+      if (timeEl) {
+        const t = timeEl.innerText.trim();
+        if (t.match(/^\d{2}:\d{2}:\d{2}$/)) return t;
+      }
+      const todos = document.querySelectorAll('span, div, p, label');
+      for (const el of todos) {
+        if (el.children.length) continue;
+        const texto = el.innerText || '';
+        const m = texto.match(/(\d{2}:\d{2}:\d{2})/);
+        if (m) return m[1];
+      }
+    } catch(e) {}
+    return new Date().toLocaleTimeString('pt-BR');
+  }
+
+  // ===== IDENTIFICA PAINEL =====
+  function identificarPainel() {
+    try {
+      return window.top.location.href.includes('/aviator2') ? 1 : 2;
+    } catch(e) {
       return document.referrer.includes('/aviator2') ? 1 : 2;
     }
   }
 
-  function encontrarElementoValor() {
-    // Tenta .bubble-multiplier (betou.bet.br DOM direto)
-    let el = document.querySelector('.bubble-multiplier');
-    if (el) return { el, origem: 'bubble' };
+  // ===== ENVIA WEBHOOK =====
+  async function enviarRodada(rodadaId, multiplicador, horario) {
+    const numId = parseInt(rodadaId);
+    if (!numId || rodadasEnviadas.has(numId)) return;
 
-    // Tenta .payout (spribegaming iframe)
-    let payouts = document.querySelectorAll(".payout");
-    if (payouts.length) return { el: payouts[0], origem: 'payout' };
+    log(`📤 #${rodadaId} ${multiplicador.toFixed(2)}x ${horario}`);
 
-    // Tenta dentro de iframes
-    const iframes = document.querySelectorAll("iframe");
-    for (const fr of iframes) {
-      try {
-        const d = fr.contentDocument;
-        if (!d) continue;
-        el = d.querySelector('.bubble-multiplier');
-        if (el) return { el, origem: 'bubble' };
-        payouts = d.querySelectorAll(".payout");
-        if (payouts.length) return { el: payouts[0], origem: 'payout' };
-      } catch(e) {}
-    }
-
-    return null;
-  }
-
-  function extrairValor(el, origem) {
-    const raw = (el.innerText || el.textContent || "").trim();
-    const value = parseFloat(raw.replace(/x/gi,"").replace(",",".").trim());
-    if (!value || isNaN(value) || value < 1 || value > 100000) return null;
-    return value;
-  }
-
-  function extractTimestamp() {
     try {
-      // Tenta .header__info-time (modal fairness da Betou)
-      const timeEl = document.querySelector('.header__info-time, app-fairness .header__info-time');
-      if (timeEl) {
-        const t = (timeEl.innerText || timeEl.textContent || "").trim();
-        if (t && /^\d{2}:\d{2}:\d{2}$/.test(t)) return t;
+      const r = await fetch(`${SERVER_URL}/api/webhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: configToken,
+          aviator: identificarPainel(),
+          rodadas: [{
+            rodada: numId,
+            multiplicador: multiplicador,
+            timestamp: horario,
+            origem: 'dom',
+            cor: null
+          }]
+        }),
+        keepalive: true
+      });
+
+      if (r.ok) {
+        rodadasEnviadas.add(numId);
+        if (rodadasEnviadas.size > 500) {
+          const arr = [...rodadasEnviadas];
+          rodadasEnviadas = new Set(arr.slice(-250));
+        }
+        log(`✅ #${rodadaId} enviada`);
       }
-      // Tenta qualquer elemento com horário HH:MM:SS próximo ao jogo
-      const all = document.querySelectorAll('span, div, p, label');
-      for (const el of all) {
-        if (el.children.length > 0) continue;
-        const txt = (el.innerText || el.textContent || "").trim();
-        const m = txt.match(/(\d{2}:\d{2}:\d{2})/);
-        if (m) return m[1];
-      }
-    } catch(e) {}
-    // Fallback: hora atual
-    return new Date().toLocaleTimeString('pt-BR');
-  }
-
-  let rodadasEnviadas = 0;
-
-  async function capture() {
-    const found = encontrarElementoValor();
-    if (!found) return;
-    const { el, origem } = found;
-    const value = extrairValor(el, origem);
-    if (!value) return;
-
-    const round = await extractRound();
-    if (!round) return;  // só envia quando tem número da rodada
-
-    // Detecta mudança de rodada: se round mudou, a anterior terminou
-    if (lastRoundId && round !== lastRoundId && currentMaxValue !== null) {
-      // Envia o VALOR FINAL da rodada que terminou
-      const rodadaNum = parseInt(lastRoundId);
-      if (rodadaNum && !sentRounds.has(rodadaNum)) {
-        sentRounds.add(rodadaNum);
-        limitSentRounds();
-        rodadasEnviadas++;
-        const timestampReal = extractTimestamp();
-        log(`✅ #${lastRoundId} ${currentMaxValue.toFixed(2)}x hora=${timestampReal}`);
-
-        fetch(`${SERVER_URL}/api/webhook`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: configToken,
-            aviator: getAviatorPainel(),
-            rodadas: [{
-              rodada: rodadaNum,
-              multiplicador: currentMaxValue,
-              timestamp: timestampReal,
-              origem: origem,
-              cor: null
-            }]
-          }),
-          keepalive: true
-        })
-        .then(r => r.json().then(d => log('OK:', d)))
-        .catch(e => log('Falha:', e.message));
-      }
+    } catch(e) {
+      log('❌ Erro:', e.message);
     }
-
-    // Atualiza estado
-    lastRoundId = round;
-    currentMaxValue = value;
-
-    // Notifica background (status)
-    try {
-      chrome.runtime.sendMessage({
-        tipo: 'status',
-        conectada: true,
-        ultimaVela: `${value.toFixed(2)}x`,
-        totalEnviadas: rodadasEnviadas
-      }).catch(()=>{});
-    } catch(_) {}
   }
 
-  // ===== CAPTURA DE HISTÓRICO (velas finalizadas no dropdown) =====
+  // ===== CAPTURA HISTÓRICO (dropdown) =====
   function capturarHistorico() {
     try {
       const payouts = document.querySelectorAll('.payouts-wrapper .payouts-block .payout, app-stats-widget .payout');
@@ -265,64 +166,56 @@
         const value = parseFloat(raw.replace(/x/gi,"").replace(",",".").trim());
         if (!value || isNaN(value) || value < 1 || value > 100000) return;
 
-        const titulo = document.querySelector('app-stats-dropdown .header__info-time');
-        const tsHistorico = titulo ? titulo.textContent.trim() : extractTimestamp();
-        const rodadaNum = parseInt(lastRoundId) || Math.floor(Date.now() / 1000);
-        const chave = idx + '_' + rodadaNum;
-        if (historicoCapturado.has(chave)) return;
-        historicoCapturado.add(chave);
+        const rodadaBase = parseInt(ultimaRodadaId) || Math.floor(Date.now() / 1000);
+        const rodadaHistorico = rodadaBase - (payouts.length - 1 - idx);
+        if (rodadasEnviadas.has(rodadaHistorico)) return;
 
-        const rodadaHistorico = rodadaNum - (payouts.length - 1 - idx);
-        if (sentRounds.has(rodadaHistorico)) return;
-        sentRounds.add(rodadaHistorico);
+        const ts = document.querySelector('app-stats-dropdown .header__info-time');
+        const horario = ts ? ts.textContent.trim() : capturarHorario();
 
         log(`📜 #${rodadaHistorico} ${value.toFixed(2)}x`);
+        rodadasEnviadas.add(rodadaHistorico);
+
         fetch(`${SERVER_URL}/api/webhook`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             token: configToken,
-            aviator: getAviatorPainel(),
-            rodadas: [{
-              rodada: rodadaHistorico,
-              multiplicador: value,
-              timestamp: tsHistorico,
-              origem: 'historico',
-              cor: null
-            }]
+            aviator: identificarPainel(),
+            rodadas: [{ rodada: rodadaHistorico, multiplicador: value, timestamp: horario, origem: 'historico', cor: null }]
           }),
           keepalive: true
         }).catch(() => {});
       });
-    } catch(e) {
-      log('Historico erro:', e.message);
+    } catch(e) {}
+  }
+
+  // ===== MONITOR PRINCIPAL =====
+  async function monitorar() {
+    const rodadaId = capturarRodada();
+    const multiplicador = capturarMultiplicador();
+    if (!rodadaId || !multiplicador) return;
+
+    const registro = `${rodadaId}|${multiplicador}`;
+
+    // Detecta mudança de rodada → envia a anterior
+    if (rodadaId !== ultimaRodadaId && ultimaRodadaId !== null) {
+      const [idAntigo, multAntigo] = ultimoRegistro.split('|');
+      if (idAntigo && multAntigo) {
+        await enviarRodada(idAntigo, parseFloat(multAntigo), capturarHorario());
+      }
     }
+
+    ultimaRodadaId = rodadaId;
+    ultimoRegistro = registro;
   }
 
-  // ===== HEARTBEAT =====
-  function pingServer() {
-    fetch(`${SERVER_URL}/api/webhook`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: configToken,
-        aviator: getAviatorPainel(),
-        heartbeat: true,
-        timestamp: new Date().toISOString()
-      }),
-      keepalive: true
-    }).catch(() => {});
-  }
-
-  // ===== OBSERVER DOM (reage a mudanças) =====
+  // ===== DOM OBSERVER =====
   let domTimeout = null;
   try {
     const observer = new MutationObserver(() => {
       if (domTimeout) return;
-      domTimeout = setTimeout(() => {
-        domTimeout = null;
-        capture();
-      }, 300);
+      domTimeout = setTimeout(() => { domTimeout = null; monitorar(); }, 300);
     });
     if (document.body) {
       observer.observe(document.body, { childList: true, subtree: true });
@@ -331,18 +224,15 @@
         observer.observe(document.body, { childList: true, subtree: true });
       });
     }
-    log('Observer OK');
   } catch(e) {}
 
   // ===== START =====
-  setInterval(capture, 800);
+  setInterval(monitorar, 800);
   setInterval(capturarHistorico, 5000);
-  setInterval(pingServer, 60000);
 
-  // Captura inicial
-  setTimeout(capture, 1000);
-  setTimeout(capture, 2000);
-  setTimeout(capture, 3000);
+  setTimeout(monitorar, 1000);
+  setTimeout(monitorar, 2000);
+  setTimeout(monitorar, 3000);
 
-  log('=== BETOU v4.1 ATIVO ===');
+  log('=== BETOU v4.3 ATIVO ===');
 })();

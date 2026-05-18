@@ -1,309 +1,58 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Betou Coletor</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --bg:       #09111a;
-    --bg2:      #0e1c2b;
-    --bg3:      #152336;
-    --green:    #00e676;
-    --green2:   #00c853;
-    --red:      #ff3d57;
-    --yellow:   #ffd600;
-    --muted:    #4a6072;
-    --text:     #cdd8e3;
-    --radius:   10px;
-  }
-
-  body {
-    font-family: 'Inter', sans-serif;
-    width: 320px;
-    background: var(--bg);
-    color: var(--text);
-    padding: 0;
-    user-select: none;
-  }
-
-  /* HEADER */
-  .header {
-    background: linear-gradient(135deg, #0a1f33 0%, #0e2a42 100%);
-    padding: 14px 16px 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-bottom: 1px solid #1a3048;
-    position: relative;
-    overflow: hidden;
-  }
-  .header::before {
-    content: '✈';
-    position: absolute;
-    right: -8px;
-    top: -4px;
-    font-size: 52px;
-    opacity: 0.06;
-    transform: rotate(15deg);
-  }
-  .header-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--green), #009688);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-  .header-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-  .header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: 0.3px; }
-  .version-badge {
-    margin-left: auto;
-    background: var(--bg3);
-    border: 1px solid #1e3550;
-    color: var(--muted);
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 20px;
-    font-weight: 600;
-  }
-
-  /* CONEXÃO */
-  .conn-bar {
-    margin: 12px 14px 0;
-    background: var(--bg2);
-    border-radius: var(--radius);
-    border: 1px solid #1a2e42;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .conn-dot {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: var(--red);
-    flex-shrink: 0;
-    transition: background 0.4s;
-  }
-  .conn-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse {
-    0%,100% { box-shadow: 0 0 4px var(--green); }
-    50%      { box-shadow: 0 0 12px var(--green); }
-  }
-  .conn-label { font-size: 12px; font-weight: 600; color: var(--text); }
-  .conn-value { margin-left: auto; font-size: 12px; font-weight: 600; }
-  .conn-value.on  { color: var(--green); }
-  .conn-value.off { color: var(--red); }
-
-  /* STATS GRID */
-  .stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px 14px;
-  }
-  .stat-card {
-    background: var(--bg2);
-    border: 1px solid #1a2e42;
-    border-radius: var(--radius);
-    padding: 10px 12px;
-  }
-  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-  .stat-value { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
-  .stat-value.green { color: var(--green); }
-  .stat-value.yellow { color: var(--yellow); }
-  .stat-card.wide { grid-column: 1 / -1; }
-  .stat-card.wide .stat-value { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  /* PAINEL INFO */
-  .painel-info {
-    margin: 0 14px 10px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    padding: 8px 12px;
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.6;
-    border: 1px solid #1e3550;
-  }
-  .painel-info strong { color: #7899aa; }
-
-  /* TOKEN */
-  .section { padding: 0 14px 12px; }
-  .section-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .input-row { display: flex; gap: 6px; }
-  .input-token {
-    flex: 1;
-    padding: 9px 12px;
-    background: var(--bg2);
-    border: 1px solid #1e3550;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 13px;
-    font-family: 'Inter', sans-serif;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .input-token:focus { border-color: var(--green); }
-  .btn-save {
-    padding: 9px 16px;
-    background: linear-gradient(135deg, var(--green), var(--green2));
-    border: none;
-    border-radius: 8px;
-    color: #00150a;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    transition: opacity 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-  .btn-save:hover  { opacity: 0.9; }
-  .btn-save:active { transform: scale(0.97); }
-  .msg-salvo {
-    font-size: 11px;
-    color: var(--green);
-    margin-top: 5px;
-    min-height: 16px;
-    font-weight: 500;
-    transition: opacity 0.3s;
-    opacity: 0;
-  }
-  .msg-salvo.show { opacity: 1; }
-
-  /* FOOTER */
-  .footer {
-    padding: 8px 14px 14px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .footer-link {
-    font-size: 10px;
-    color: var(--muted);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  .footer-link:hover { color: var(--text); }
-  .footer-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Betou Coletor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 280px; font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f1a; color: #fff; padding: 12px; }
+    .header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .header h1 { font-size: 14px; font-weight: 700; color: #349CFF; }
+    .version { font-size: 9px; background: #1a1a2e; padding: 2px 6px; border-radius: 4px; color: #888; }
+    .status { display: flex; align-items: center; gap: 6px; padding: 8px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+    .status-dot.on { background: #00ff88; box-shadow: 0 0 6px #00ff8866; }
+    .info { font-size: 11px; color: #aaa; }
+    .info span { color: #fff; font-weight: 600; }
+    .footer { font-size: 9px; color: #555; text-align: center; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a1a2e; }
+  </style>
 </head>
 <body>
-
-<!-- HEADER -->
-<div class="header">
-  <div class="header-icon">✈</div>
-  <div>
-    <div class="header-title">Betou Coletor</div>
-    <div class="header-sub">Painel Aviator · Coleta em tempo real</div>
+  <div class="header">
+    <h1>🎯 Betou Coletor</h1>
+    <span class="version">v4.3</span>
   </div>
-  <div class="version-badge">v4.1</div>
-</div>
-
-<!-- CONEXÃO -->
-<div class="conn-bar">
-  <div class="conn-dot" id="dot"></div>
-  <span class="conn-label">Status do servidor</span>
-  <span class="conn-value off" id="statusConexao">Desconectado</span>
-</div>
-
-<!-- STATS -->
-<div class="stats">
-  <div class="stat-card">
-    <div class="stat-label">Rodadas enviadas</div>
-    <div class="stat-value green" id="totalEnviadas">0</div>
+  <div class="status" id="statusBar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Iniciando...</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Abas Betou</div>
-    <div class="stat-value yellow" id="abasAbertas">0</div>
+  <div class="info">
+    Rodadas enviadas: <span id="totalEnviadas">0</span><br>
+    Abas abertas: <span id="abasAbertas">0</span>
   </div>
-  <div class="stat-card wide">
-    <div class="stat-label">Última vela capturada</div>
-    <div class="stat-value" id="ultimaVela">—</div>
-  </div>
-</div>
+  <div class="footer">Painel Aviator SaaS</div>
 
-<!-- PAINEL MAPEAMENTO -->
-<div class="painel-info">
-  <strong>Mapeamento de painéis:</strong><br>
-  betou.bet.br/games/.../aviator &nbsp;→&nbsp; <strong style="color:#00e676">Painel 2</strong><br>
-  betou.bet.br/games/.../aviator2 &nbsp;→&nbsp; <strong style="color:#ffd600">Painel 1</strong>
-</div>
+  <script>
+    function atualizar(msg) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const conectada = msg.conectada;
+      dot.className = 'status-dot' + (conectada ? ' on' : '');
+      text.textContent = conectada ? 'Conectado' : 'Aguardando...';
+      document.getElementById('totalEnviadas').textContent = msg.totalEnviadas || 0;
+      document.getElementById('abasAbertas').textContent = msg.abasAbertas || 0;
+    }
 
-<!-- TOKEN -->
-<div class="section">
-  <div class="section-label">Token do cliente</div>
-  <div class="input-row">
-    <input type="text" class="input-token" id="inputToken" placeholder="default" spellcheck="false" autocomplete="off">
-    <button class="btn-save" id="btnSalvar">Salvar</button>
-  </div>
-  <div class="msg-salvo" id="msgSalvo">✓ Token salvo com sucesso!</div>
-</div>
+    chrome.runtime.sendMessage({ tipo: 'getStatus' }, (r) => {
+      if (r) atualizar(r);
+    }).catch(() => {
+      document.getElementById('statusText').textContent = 'Erro de conexão';
+    });
 
-<!-- FOOTER -->
-<div class="footer">
-  <a class="footer-link" href="https://painel-aviator.onrender.com" target="_blank">Abrir painel ↗</a>
-  <div class="footer-dot"></div>
-  <span class="footer-link">Betou Coletor © 2025</span>
-</div>
-
-<script>
-const inputToken   = document.getElementById('inputToken');
-const btnSalvar    = document.getElementById('btnSalvar');
-const msgSalvo     = document.getElementById('msgSalvo');
-const dot          = document.getElementById('dot');
-const elConexao    = document.getElementById('statusConexao');
-const elVela       = document.getElementById('ultimaVela');
-const elTotal      = document.getElementById('totalEnviadas');
-const elAbas       = document.getElementById('abasAbertas');
-
-// Carrega token salvo
-chrome.storage.sync.get(['token'], (cfg) => {
-  inputToken.value = cfg.token || '';
-});
-
-// Salva token
-btnSalvar.addEventListener('click', () => {
-  const val = inputToken.value.trim();
-  chrome.storage.sync.set({ token: val || 'default' }, () => {
-    msgSalvo.classList.add('show');
-    setTimeout(() => msgSalvo.classList.remove('show'), 2500);
-  });
-});
-
-// Atualiza UI
-function atualizarUI(s) {
-  const ok = !!s.conectada;
-  dot.className = 'conn-dot' + (ok ? ' on' : '');
-  elConexao.textContent = ok ? 'Conectado' : 'Desconectado';
-  elConexao.className   = 'conn-value ' + (ok ? 'on' : 'off');
-  elVela.textContent    = s.ultimaVela   || '—';
-  elTotal.textContent   = (s.totalEnviadas || 0).toLocaleString('pt-BR');
-  elAbas.textContent    = s.abasAbertas  || 0;
-}
-
-// Escuta atualizações em tempo real
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.tipo === 'statusAtualizado') atualizarUI(msg);
-});
-
-// Pede status ao abrir o popup
-chrome.runtime.sendMessage({ tipo: 'getStatus' });
-</script>
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.tipo === 'statusAtualizado') atualizar(msg);
+    });
+  </script>
 </body>
 </html>
