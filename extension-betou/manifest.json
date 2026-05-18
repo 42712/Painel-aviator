@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Betou Coletor",
-  "version": "6.2",
+  "version": "6.3",
   "description": "Captura velas, rodada e horario do Aviator em tempo real via WebSocket + DOM",
 
   "permissions": [

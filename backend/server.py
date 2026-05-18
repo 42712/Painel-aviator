@@ -124,9 +124,17 @@ def api_webhook():
         ultimo_heartbeat = time.time()
 
         for r in rodadas:
-            rodada_id = r.get('rodada') or r.get('id') or r.get('round') or int(time.time() * 1000)
-            mult = r.get('mult') or r.get('multiplicador') or r.get('multiplier') or r.get('value')
-            timestamp = r.get('timestamp') or r.get('time') or r.get('hora')
+            rodada_id = r.get('rodada')
+            if rodada_id is None: rodada_id = r.get('id')
+            if rodada_id is None: rodada_id = r.get('round')
+            if rodada_id is None: rodada_id = int(time.time() * 1000)
+            mult = r.get('mult')
+            if mult is None: mult = r.get('multiplicador')
+            if mult is None: mult = r.get('multiplier')
+            if mult is None: mult = r.get('value')
+            timestamp = r.get('timestamp')
+            if timestamp is None: timestamp = r.get('time')
+            if timestamp is None: timestamp = r.get('hora')
             if mult:
                 from models import Rodada
                 try:

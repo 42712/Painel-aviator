@@ -1,15 +1,18 @@
-// ===== Content Script - Betou Coletor v6.2 (CSP-safe) =====
+// ===== Content Script - Betou Coletor v6.3 =====
 const SERVER_URL = "https://painel-aviator.onrender.com";
 const INTERVALO_ENVIO = 3;
 
 const isBetou = location.hostname.includes('betou');
 const isSpribe = location.hostname.includes('spribegaming');
 
-let ultimasVelas = [];
-let ultimoEnvio = Date.now();
-let rodadasVistas = new Set();
-let config = { token: 'default', aviator: 1 };
-let ultimoMult = null;
+var ultimasVelas = [];
+var ultimoEnvio = Date.now();
+var dedupSet = new Set();
+var config = { token: 'default', aviator: 1 };
+var ultimoMult = null;
+var rodadaAtual = null;
+var rodadaUltimaCaptura = null;
+var totalEnviadas = 0;
 
 chrome.storage.sync.get(['token', 'aviator'], function(cfg) {
   if (cfg.token) config.token = cfg.token;
@@ -27,30 +30,19 @@ function getTimeNow() {
   return new Date().toLocaleTimeString('pt-BR');
 }
 
-// ===================================================================
-// INJETA main.js NO MAIN WORLD (via src, burla CSP)
-// ===================================================================
-function injectMainWorld() {
-  try {
-    var s = document.createElement('script');
-    s.src = chrome.runtime.getURL('main.js');
-    s.onload = function() { s.remove(); };
-    document.documentElement.appendChild(s);
-  } catch(e) {
-    console.log('[Betou] Erro injecao:', e);
-  }
-}
-injectMainWorld();
+// ===== INJETA main.js NO MAIN WORLD =====
+try {
+  var s = document.createElement('script');
+  s.src = chrome.runtime.getURL('main.js');
+  s.onload = function() { s.remove(); };
+  document.documentElement.appendChild(s);
+} catch(e) {}
 
 // ===== RECEBE DADOS DO MAIN WORLD =====
 window.addEventListener('message', function(event) {
-  if (event.source !== window) return;
-  if (event.data.type !== '__BETOU_WS') return;
-  processarRaw(event.data.data);
-});
-
-function processarRaw(raw) {
+  if (event.source !== window || event.data.type !== '__BETOU_WS') return;
   try {
+    var raw = event.data.data;
     if (raw.startsWith('a[')) {
       var arr = JSON.parse(raw);
       if (Array.isArray(arr)) {
@@ -62,7 +54,7 @@ function processarRaw(raw) {
     }
     processarMsg(raw);
   } catch(e) {}
-}
+});
 
 function processarMsg(msg) {
   try {
@@ -70,7 +62,7 @@ function processarMsg(msg) {
     if (clean.startsWith('{')) {
       var json = JSON.parse(clean);
       var r = extrair(json);
-      if (r) { console.log('[Betou] WS:', r.r, r.m.toFixed(2)+'x'); addVela(r); }
+      if (r) { addVela({ rodada: r.r, multiplicador: r.m, timestamp: getTimeNow(), origem: 'ws' }); }
       return;
     }
     var idx = clean.indexOf('\n\n');
@@ -79,15 +71,43 @@ function processarMsg(msg) {
       if (body.startsWith('{')) {
         var json = JSON.parse(body);
         var r = extrair(json);
-        if (r) { console.log('[Betou] STOMP:', r.r, r.m.toFixed(2)+'x'); addVela(r); }
+        if (r) { addVela({ rodada: r.r, multiplicador: r.m, timestamp: getTimeNow(), origem: 'stomp' }); }
       }
     }
   } catch(e) {}
 }
 
-// ===================================================================
-// DOM CAPTURE - seletores confirmados
-// ===================================================================
+// ===== CAPTURA RODADA ATUAL =====
+function capturarRodada() {
+  try {
+    var spans = document.querySelectorAll('span.text-uppercase');
+    for (var i = 0; i < spans.length; i++) {
+      var txt = spans[i].innerText.trim();
+      var m = txt.match(/(\d{6,})/);
+      if (m) {
+        var num = parseInt(m[1]);
+        if (num > 100000) {
+          rodadaAtual = num;
+          return num;
+        }
+      }
+    }
+    // Fallback: qualquer texto com numero grande
+    var todos = document.querySelectorAll('span, div');
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].children.length) continue;
+      var txt = (todos[i].innerText || todos[i].textContent || '').trim();
+      var m = txt.match(/[Rr]odada\s+(\d{6,})/);
+      if (m) {
+        var num = parseInt(m[1]);
+        if (num > 100000) { rodadaAtual = num; return num; }
+      }
+    }
+  } catch(e) {}
+  return rodadaAtual;
+}
+
+// ===== CAPTURA MULTIPLICADOR DO JOGO =====
 function capturarDOM() {
   try {
     var elMult = document.querySelector('.bubble-multiplier');
@@ -99,42 +119,44 @@ function capturarDOM() {
     var elTime = document.querySelector('.header__info-time');
     var horario = elTime ? elTime.innerText.trim() : getTimeNow();
 
-    var elRodada = document.querySelector('span.text-uppercase');
-    var rodadaNum = null;
-    if (elRodada) {
-      var m = elRodada.innerText.trim().match(/\d{4,}/);
-      if (m) rodadaNum = m[0];
-    }
+    var rodada = capturarRodada();
 
     if (mult !== ultimoMult) {
       ultimoMult = mult;
-      var key = 'dom_' + mult.toFixed(2) + '_' + (rodadaNum || Date.now());
-      if (rodadasVistas.has(key)) return;
-      rodadasVistas.add(key);
-      console.log('[Betou] DOM:', mult.toFixed(2)+'x', horario, rodadaNum ? '#'+rodadaNum : '');
-      addVela({
-        rodada: rodadaNum ? parseInt(rodadaNum) : null,
-        multiplicador: mult,
-        timestamp: horario,
-        origem: 'dom'
-      });
+      var key = (rodada || '') + '_' + mult.toFixed(2);
+      if (dedupSet.has(key)) return;
+      dedupSet.add(key);
+      console.log('[Betou] DOM:', mult.toFixed(2)+'x', horario, rodada ? '#'+rodada : '');
+      addVela({ rodada: rodada, multiplicador: mult, timestamp: horario, origem: 'dom' });
     }
   } catch(e) {}
 }
 
+// ===== CAPTURA HISTORICO (payouts) =====
 function capturarPayout() {
   try {
-    var els = document.querySelectorAll('.payout');
-    if (!els.length) return;
-    var txt = els[0].innerText.trim();
-    var mult = parseFloat(txt.replace('x', '').replace(',', '.'));
-    if (isNaN(mult) || mult < 1 || mult > 100000 || mult === ultimoMult) return;
-    ultimoMult = mult;
-    var key = 'payout_' + mult.toFixed(2);
-    if (rodadasVistas.has(key)) return;
-    rodadasVistas.add(key);
-    console.log('[Betou] payout:', mult.toFixed(2)+'x');
-    addVela({ multiplicador: mult, timestamp: getTimeNow(), origem: 'payout' });
+    var payouts = document.querySelectorAll('.payout');
+    if (!payouts.length) return;
+
+    // Atualiza rodada atual
+    capturarRodada();
+
+    payouts.forEach(function(el, idx) {
+      var txt = el.innerText.trim();
+      var mult = parseFloat(txt.replace('x', '').replace(',', '.'));
+      if (isNaN(mult) || mult < 1 || mult > 100000) return;
+
+      // Estima a rodada pelo indice no historico
+      var rodadaEstimada = rodadaAtual ? (rodadaAtual - (payouts.length - 1 - idx)) : null;
+
+      var key = (rodadaEstimada || 'hist_') + '_' + mult.toFixed(2) + '_' + idx;
+      if (dedupSet.has(key)) return;
+      dedupSet.add(key);
+
+      var horario = getTimeNow();
+      console.log('[Betou] 📜 #' + (rodadaEstimada || '?') + ' ' + mult.toFixed(2) + 'x');
+      addVela({ rodada: rodadaEstimada, multiplicador: mult, timestamp: horario, origem: 'historico' });
+    });
   } catch(e) {}
 }
 
@@ -142,7 +164,7 @@ function capturarPayout() {
 var obsTimeout = null;
 var observer = new MutationObserver(function() {
   if (obsTimeout) return;
-  obsTimeout = setTimeout(function() { obsTimeout = null; capturarDOM(); }, 500);
+  obsTimeout = setTimeout(function() { obsTimeout = null; capturarRodada(); capturarDOM(); }, 500);
 });
 
 if (document.body) {
@@ -153,12 +175,11 @@ if (document.body) {
   });
 }
 
+setInterval(capturarRodada, 2000);
 setInterval(capturarDOM, 800);
-setInterval(capturarPayout, 500);
+setInterval(capturarPayout, 5000);
 
-// ===================================================================
-// EXTRAIR
-// ===================================================================
+// ===== EXTRAIR =====
 function extrair(data) {
   if (!data || typeof data !== 'object') return null;
   if (data.round && data.multiplier !== undefined) return { r: data.round, m: parseFloat(data.multiplier) };
@@ -177,22 +198,21 @@ function extrair(data) {
   return null;
 }
 
-// ===================================================================
-// ENVIO
-// ===================================================================
+// ===== ENVIO =====
 function addVela(rodada) {
-  var id = rodada.rodada || rodada.r || Date.now();
-  if (rodadasVistas.has(id)) return;
-  rodadasVistas.add(id);
-  if (rodadasVistas.size > 2000) rodadasVistas = new Set([...rodadasVistas].slice(-1000));
+  var rodId = rodada.rodada || rodada.r || 0;
+  if (rodId && dedupSet.has('r_' + rodId)) return;
+  if (rodId) dedupSet.add('r_' + rodId);
+
+  if (dedupSet.size > 5000) dedupSet = new Set([...dedupSet].slice(-2500));
 
   ultimasVelas.push({
-    rodada: rodada.rodada || rodada.r || 0,
+    rodada: rodId,
     multiplicador: rodada.multiplicador || rodada.m || rodada.mult || 0,
     timestamp: rodada.timestamp || getTimeNow(),
     origem: rodada.origem || 'extensao'
   });
-  if (ultimasVelas.length > 30) ultimasVelas = ultimasVelas.slice(-30);
+  if (ultimasVelas.length > 50) ultimasVelas = ultimasVelas.slice(-50);
   enviar();
 }
 
@@ -203,6 +223,9 @@ function enviar() {
   ultimoEnvio = agora;
   var lote = ultimasVelas.slice();
   ultimasVelas = [];
+
+  totalEnviadas += lote.length;
+  var ultima = lote[lote.length - 1];
 
   fetch(SERVER_URL + '/api/webhook', {
     method: 'POST',
@@ -217,12 +240,12 @@ function enviar() {
   }).then(function() {
     chrome.runtime.sendMessage({
       tipo: 'status', conectada: true,
-      ultimaVela: lote[lote.length-1].multiplicador.toFixed(2) + 'x',
-      totalEnviadas: lote.length
+      ultimaVela: (ultima.multiplicador || 0).toFixed(2) + 'x',
+      totalEnviadas: totalEnviadas
     }).catch(function(){});
   }).catch(function() {
     ultimasVelas = lote.concat(ultimasVelas);
-    if (ultimasVelas.length > 50) ultimasVelas = ultimasVelas.slice(-50);
+    if (ultimasVelas.length > 100) ultimasVelas = ultimasVelas.slice(-100);
   });
 }
 
@@ -248,4 +271,4 @@ try {
   setInterval(function() { if (audioCtx.state === 'suspended') audioCtx.resume(); }, 10000);
 } catch(e) {}
 
-console.log('[Betou v6.2] Ativo |', location.hostname, '| Painel', getPainel());
+console.log('[Betou v6.3] Ativo |', location.hostname, '| Painel', getPainel());

@@ -595,6 +595,41 @@
             document.getElementById('totalMinutagem').textContent = velas.length + ' velas';
         }
 
+        // ===== POLLING FALLBACK (SSE cai no Render free tier) =====
+        let pollingAtivo = false;
+        let pollingInterval = null;
+
+        evtSource.onerror = function() {
+            if (!pollingAtivo) {
+                console.log('[Polling] SSE falhou, ativando polling fallback');
+                pollingAtivo = true;
+                pollingInterval = setInterval(function() {
+                    for (var n = 1; n <= 2; n++) {
+                        (function(num) {
+                            fetch('/api/' + num + '/ultimas').then(function(r) { return r.json(); }).then(function(d) {
+                                if (Array.isArray(d) && d.length) {
+                                    var arr = num === 1 ? todasVelas1 : todasVelas2;
+                                    if (d.length > arr.length) {
+                                        arr.length = 0;
+                                        arr.push.apply(arr, d);
+                                        if (aviatorAtivo === num) renderizarTudo();
+                                    }
+                                }
+                            }).catch(function(){});
+                        })(n);
+                    }
+                }, 5000);
+            }
+        };
+
+        evtSource.onopen = function() {
+            if (pollingAtivo) {
+                pollingAtivo = false;
+                if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+                console.log('[Polling] SSE reconectou, polling desativado');
+            }
+        };
+
         // ===== TIMER =====
         function iniciarTimer() {
             setInterval(() => {
