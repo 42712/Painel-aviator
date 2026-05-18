@@ -1,18 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Megatron Aviator Realtime WS",
-  "version": "5.0",
-  "description": "Captura velas, rodada e horário do Aviator em tempo real via WebSocket.",
+  "name": "Betou Coletor",
+  "version": "4.3",
+  "description": "Coleta rodadas do Aviator Betou e envia para o painel",
 
   "permissions": [
     "storage",
-    "activeTab"
+    "alarms"
   ],
 
   "host_permissions": [
-    "https://*.spribegaming.com/*",
-    "https://*.bet.br/*",
-    "https://*.aviatorx.app/*"
+    "https://painel-aviator.onrender.com/*",
+    "https://*.betou.bet.br/*",
+    "https://*.spribegaming.com/*"
   ],
 
   "background": {
@@ -22,13 +22,17 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.spribegaming.com/*",
-        "https://*.bet.br/*",
-        "https://*.aviatorx.app/*"
+        "https://*.betou.bet.br/*",
+        "https://*.spribegaming.com/*"
       ],
       "js": ["content.js"],
       "all_frames": true,
       "run_at": "document_start"
     }
-  ]
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Betou Coletor"
+  }
 }

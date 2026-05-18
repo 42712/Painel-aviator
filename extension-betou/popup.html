@@ -2,54 +2,95 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Betou Coletor</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { width: 280px; font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f1a; color: #fff; padding: 12px; }
-    .header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    body {
+      width: 280px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0a0a14;
+      color: #e0e8ff;
+      padding: 14px;
+    }
+    .header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    }
     .header h1 { font-size: 14px; font-weight: 700; color: #349CFF; }
-    .version { font-size: 9px; background: #1a1a2e; padding: 2px 6px; border-radius: 4px; color: #888; }
-    .status { display: flex; align-items: center; gap: 6px; padding: 8px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; font-size: 12px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
-    .status-dot.on { background: #00ff88; box-shadow: 0 0 6px #00ff8866; }
-    .info { font-size: 11px; color: #aaa; }
-    .info span { color: #fff; font-weight: 600; }
-    .footer { font-size: 9px; color: #555; text-align: center; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a1a2e; }
+    .version {
+      font-size: 9px; background: #1a1a2e;
+      padding: 2px 6px; border-radius: 4px; color: #888;
+    }
+    .status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: #111827;
+      border-radius: 7px; margin-bottom: 8px;
+      border: 1px solid #1e2a40;
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #333; flex-shrink: 0; }
+    .dot.on { background: #00e676; box-shadow: 0 0 7px #00e67688; }
+    .dot.off { background: #ff1744; }
+    #statusText { font-size: 12px; color: #aac; }
+    .stats {
+      background: #111827; border: 1px solid #1e2a40;
+      border-radius: 7px; padding: 10px; font-size: 12px;
+    }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-label { color: #667; }
+    .stat-value { color: #fff; font-weight: 600; }
+    .stat-value.highlight { color: #00e676; }
+    .footer {
+      font-size: 9px; color: #334; text-align: center;
+      margin-top: 10px; padding-top: 8px; border-top: 1px solid #1a1a2e;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>🎯 Betou Coletor</h1>
-    <span class="version">v4.3</span>
+    <span class="version">v5.0</span>
   </div>
-  <div class="status" id="statusBar">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Iniciando...</span>
+
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Aguardando...</span>
   </div>
-  <div class="info">
-    Rodadas enviadas: <span id="totalEnviadas">0</span><br>
-    Abas abertas: <span id="abasAbertas">0</span>
+
+  <div class="stats">
+    <div class="stat-row">
+      <span class="stat-label">Última vela:</span>
+      <span class="stat-value highlight" id="ultimaVela">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Rodadas enviadas:</span>
+      <span class="stat-value" id="totalEnviadas">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Abas abertas:</span>
+      <span class="stat-value" id="abasAbertas">0</span>
+    </div>
   </div>
-  <div class="footer">Painel Aviator SaaS</div>
+
+  <div class="footer">Painel Aviator SaaS · WebSocket Mode</div>
 
   <script>
     function atualizar(msg) {
-      const dot = document.getElementById('statusDot');
-      const text = document.getElementById('statusText');
-      const conectada = msg.conectada;
-      dot.className = 'status-dot' + (conectada ? ' on' : '');
-      text.textContent = conectada ? 'Conectado' : 'Aguardando...';
+      const dot = document.getElementById('dot');
+      const txt = document.getElementById('statusText');
+      const on  = msg.conectada && (msg.abasAbertas > 0);
+      dot.className = 'dot ' + (on ? 'on' : 'off');
+      txt.textContent = on ? 'Conectado' : (msg.abasAbertas > 0 ? 'Aguardando jogo...' : 'Abra o Aviator');
+      document.getElementById('ultimaVela').textContent  = msg.ultimaVela    || '—';
       document.getElementById('totalEnviadas').textContent = msg.totalEnviadas || 0;
-      document.getElementById('abasAbertas').textContent = msg.abasAbertas || 0;
+      document.getElementById('abasAbertas').textContent  = msg.abasAbertas   || 0;
     }
 
+    // Pede status ao abrir popup
     chrome.runtime.sendMessage({ tipo: 'getStatus' }, (r) => {
       if (r) atualizar(r);
-    }).catch(() => {
-      document.getElementById('statusText').textContent = 'Erro de conexão';
     });
 
+    // Escuta atualizações em tempo real
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg.tipo === 'statusAtualizado') atualizar(msg);
     });
