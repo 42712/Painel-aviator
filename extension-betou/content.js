@@ -5,11 +5,16 @@
 
   const SERVER_URL = "https://painel-aviator.onrender.com";
   const LOG = true;
+  const isIframe = window.self !== window.top;
+  const hostname = window.location.hostname;
 
   function log(...args) { if (LOG) console.log('[Betou v4]', ...args); }
 
   let lastValue = null;
   let lastRound = null;
+  let lastSentRound = null;
+  let lastSentValue = null;
+  let historicoCapturado = new Set();
   let configToken = 'default';
 
   // Carrega token do storage
@@ -21,8 +26,8 @@
   } catch(e) {}
 
   log('Ativo | url=' + window.location.href.substring(0, 100));
-  log('iframe=' + (window.self !== window.top));
-  log('dominio=' + window.location.hostname);
+  log('iframe=' + isIframe);
+  log('dominio=' + hostname);
 
   // ===== ANTI-THROTTLE (AudioContext) =====
   try {
@@ -48,51 +53,75 @@
     return null;
   }
 
-  // ===== NÚMERO DA RODADA =====
-  function extractRound() {
-    try {
-      const docs = [document];
-      document.querySelectorAll("iframe").forEach(fr => {
-        try { if (fr.contentDocument) docs.push(fr.contentDocument); } catch(e) {}
-      });
+  // ===== COMPARTILHAMENTO DO NÚMERO DA RODADA ENTRE FRAMES =====
+  // No iframe Spribe não enxerga o DOM da Betou.
+  // Quem achar a rodada primeiro salva no storage.local para todos usarem.
 
-      for (const doc of docs) {
-        // Método 1: Betou - .text-uppercase[class*="ng-tns-c"]
-        const spans = doc.querySelectorAll('span.text-uppercase[class*="ng-tns-c"]');
+  function salvarRodadaGlobal(round) {
+    if (!round) return;
+    try {
+      chrome.storage.local.set({ rodadaCompartilhada: round, rodadaAtualizadaEm: Date.now() });
+    } catch(e) {}
+  }
+
+  function carregarRodadaGlobal() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get(['rodadaCompartilhada', 'rodadaAtualizadaEm'], (r) => {
+          if (r.rodadaCompartilhada && r.rodadaAtualizadaEm && Date.now() - r.rodadaAtualizadaEm < 30000) {
+            resolve(String(r.rodadaCompartilhada));
+          } else {
+            resolve(null);
+          }
+        });
+      } catch(e) { resolve(null); }
+    });
+  }
+
+  // ===== NÚMERO DA RODADA =====
+  async function extractRound() {
+    // Se for iframe Spribe, tenta ler rodada compartilhada primeiro
+    if (isIframe && hostname.includes('spribegaming')) {
+      const r = await carregarRodadaGlobal();
+      if (r) { log('Rodada compartilhada:', r); return r; }
+    }
+
+    try {
+      // Se for página Betou (top), busca no DOM direto
+      if (!isIframe || hostname.includes('betou')) {
+        // Método 1: Betou - span.text-uppercase com número da rodada
+        const spans = document.querySelectorAll('span.text-uppercase[class*="ng-tns-c"], span.text-uppercase');
         for (const span of spans) {
           const txt = (span.innerText || span.textContent || "").trim();
           const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-          if (m) { log('Rodada:', m[1]); return m[1]; }
+          if (m) { salvarRodadaGlobal(m[1]); log('Rodada:', m[1]); return m[1]; }
           const m2 = txt.match(/^(\d{5,})$/);
-          if (m2) { log('Rodada:', m2[1]); return m2[1]; }
+          if (m2) { salvarRodadaGlobal(m2[1]); log('Rodada:', m2[1]); return m2[1]; }
         }
 
         // Método 2: qualquer span/div com "Rodada XXXXX"
-        const all = doc.querySelectorAll("span, div, h1, h2, h3, p, label");
+        const all = document.querySelectorAll("span, div, h1, h2, h3, p, label, b, strong");
         for (const el of all) {
           if (el.children.length > 0) continue;
           const txt = (el.innerText || el.textContent || "").trim();
           const m = txt.match(/[Rr]odada\s+(\d{4,})/);
-          if (m) { log('Rodada:', m[1]); return m[1]; }
+          if (m) { salvarRodadaGlobal(m[1]); log('Rodada:', m[1]); return m[1]; }
           const mR = txt.match(/[Rr]ound\s+(\d{4,})/);
-          if (mR) { log('Round:', mR[1]); return mR[1]; }
+          if (mR) { salvarRodadaGlobal(mR[1]); log('Round:', mR[1]); return mR[1]; }
         }
 
-        // Método 3: modal header
-        const headers = doc.querySelectorAll('[class*="modal-header"]');
-        for (const h of headers) {
-          const txt = (h.innerText || h.textContent || "").trim();
-          const m = txt.match(/[Rr][Oo][Dd][Aa][Dd][Aa]\s+(\d{4,})/);
-          if (m) { log('Rodada modal:', m[1]); return m[1]; }
-        }
+        // Método 3: body text
+        const bodyText = document.body ? (document.body.innerText || "") : "";
+        const mBody = bodyText.match(/[Rr]odada\s+(\d{5,})/);
+        if (mBody) { salvarRodadaGlobal(mBody[1]); log('Rodada body:', mBody[1]); return mBody[1]; }
       }
 
-      // Método 4: body text
-      const bodyText = document.body ? (document.body.innerText || "") : "";
-      const mBody = bodyText.match(/[Rr]odada\s+(\d{5,})/);
-      if (mBody) { log('Rodada body:', mBody[1]); return mBody[1]; }
-
     } catch(e) { log('Erro round:', e.message); }
+
+    // Último fallback: tenta ler do storage
+    const r = await carregarRodadaGlobal();
+    if (r) return r;
+
     return null;
   }
 
@@ -138,25 +167,51 @@
     return value;
   }
 
+  function extractTimestamp() {
+    try {
+      // Tenta .header__info-time (modal fairness da Betou)
+      const timeEl = document.querySelector('.header__info-time, app-fairness .header__info-time');
+      if (timeEl) {
+        const t = (timeEl.innerText || timeEl.textContent || "").trim();
+        if (t && /^\d{2}:\d{2}:\d{2}$/.test(t)) return t;
+      }
+      // Tenta qualquer elemento com horário HH:MM:SS próximo ao jogo
+      const all = document.querySelectorAll('span, div, p, label');
+      for (const el of all) {
+        if (el.children.length > 0) continue;
+        const txt = (el.innerText || el.textContent || "").trim();
+        const m = txt.match(/(\d{2}:\d{2}:\d{2})/);
+        if (m) return m[1];
+      }
+    } catch(e) {}
+    // Fallback: hora atual
+    return new Date().toLocaleTimeString('pt-BR');
+  }
+
   let rodadasEnviadas = 0;
 
-  function capture() {
+  async function capture() {
     const found = encontrarElementoValor();
     if (!found) return;
 
     const { el, origem } = found;
     const value = extrairValor(el, origem);
     if (!value) return;
-    if (value === lastValue) return;
-    lastValue = value;
 
     const rgb = extractRgb(el);
-    const round = extractRound() || lastRound;
+    const round = await extractRound() || lastRound;
     if (round) lastRound = round;
+
+    // Dedup: mesma rodada E mesmo valor = já foi enviado
+    if (value === lastValue && round && round === lastSentRound) return;
+    if (!round && value === lastValue) return;
+    lastValue = value;
+    lastSentRound = round;
 
     const rodadaNum = parseInt(round) || Math.floor(Date.now() / 1000);
     rodadasEnviadas++;
-    log(`✈ ${value.toFixed(2)}x #${rodadaNum} rgb=${rgb} origem=${origem}`);
+    const timestampReal = extractTimestamp();
+    log(`✈ ${value.toFixed(2)}x #${rodadaNum} hora=${timestampReal} rgb=${rgb} origem=${origem}`);
 
     // Envia para o servidor
     fetch(`${SERVER_URL}/api/webhook`, {
@@ -168,7 +223,7 @@
         rodadas: [{
           rodada: rodadaNum,
           multiplicador: value,
-          timestamp: new Date().toLocaleTimeString('pt-BR'),
+          timestamp: timestampReal,
           origem: origem,
           cor: rgb
         }]
@@ -215,6 +270,7 @@
                     if (rodId) lastRound = String(rodId);
                     rodadasEnviadas++;
                     const rgb = null;
+                    const wsTimestamp = extractTimestamp();
                     fetch(`${SERVER_URL}/api/webhook`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -224,7 +280,7 @@
                         rodadas: [{
                           rodada: rodId || Math.floor(Date.now() / 1000),
                           multiplicador: mult,
-                          timestamp: new Date().toLocaleTimeString('pt-BR'),
+                          timestamp: wsTimestamp,
                           origem: 'websocket',
                           cor: rgb
                         }]
@@ -243,6 +299,50 @@
     log('WS intercept ativo');
   } catch(e) {
     log('WS intercept erro:', e.message);
+  }
+
+  // ===== CAPTURA DE HISTÓRICO (velas já finalizadas) =====
+  function capturarHistorico() {
+    try {
+      // Busca todos os .payout dentro do histórico do jogo
+      const payouts = document.querySelectorAll('.payouts-wrapper .payouts-block .payout, app-stats-widget .payout');
+      if (!payouts.length) return;
+
+      const roundAtual = lastRound || '';
+      payouts.forEach((el, idx) => {
+        const raw = (el.innerText || el.textContent || "").trim();
+        const value = parseFloat(raw.replace(/x/gi,"").replace(",",".").trim());
+        if (!value || isNaN(value) || value < 1 || value > 100000) return;
+
+        // Chave única: posição + valor + rodada atual
+        const chave = idx + '_' + value.toFixed(2) + '_' + roundAtual;
+        if (historicoCapturado.has(chave)) return;
+        historicoCapturado.add(chave);
+
+        const timestampReal = extractTimestamp();
+        const rodadaNum = parseInt(lastRound) || Math.floor(Date.now() / 1000);
+        log(`📜 Histórico #${rodadaNum} ${value.toFixed(2)}x idx=${idx}`);
+
+        fetch(`${SERVER_URL}/api/webhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: configToken,
+            aviator: getAviatorPainel(),
+            rodadas: [{
+              rodada: rodadaNum - (payouts.length - 1 - idx),
+              multiplicador: value,
+              timestamp: timestampReal,
+              origem: 'historico',
+              cor: null
+            }]
+          }),
+          keepalive: true
+        }).catch(() => {});
+      });
+    } catch(e) {
+      log('Erro historico:', e.message);
+    }
   }
 
   // ===== HEARTBEAT =====
@@ -282,6 +382,7 @@
 
   // ===== START =====
   setInterval(capture, 800);
+  setInterval(capturarHistorico, 5000);
   setInterval(pingServer, 60000);
 
   // Captura inicial

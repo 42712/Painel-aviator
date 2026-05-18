@@ -261,6 +261,7 @@
         }
         .vela-historico .mult-h { font-weight: 800; font-size: 15px; }
         .vela-historico .rodada-h { font-size: 8px; color: #666; }
+        .vela-historico .hora-h { font-size: 9px; color: #555; margin-top: 1px; }
         .vela-historico .soma-h { font-size: 9px; font-weight: 700; margin-top: 2px; opacity: 0.7; }
         .vela-historico.selecionada { outline: 2px solid rgba(255,255,255,0.3); transform: scale(1.05); }
 
@@ -520,9 +521,11 @@
             document.getElementById('historicoGrid').innerHTML = v.reverse().map(v => {
                 const c = classificarCor(v.multiplicador);
                 const s = v.soma || calcularSoma(v.multiplicador);
+                const h = v.timestamp ? v.timestamp.substring(0, 5) : '--:--';
                 return '<div class="vela-historico" style="border-color:' + CORES[c].hex + '40;" onclick="selecionarVela(this,\'' + c + '\')">' +
                     '<span class="mult-h" style="color:' + CORES[c].hex + '">' + v.exibicao + '</span>' +
                     '<span class="rodada-h">#' + v.rodada + '</span>' +
+                    '<span class="hora-h" style="color:#888;font-size:11px">' + h + '</span>' +
                     '<span class="soma-h" style="color:' + CORES[c].hex + '">Soma: ' + s + '</span></div>';
             }).join('');
             document.getElementById('contagemHistorico').textContent = v.length + ' velas';
@@ -598,7 +601,7 @@
                 const agora = Date.now();
                 const ts = aviatorAtivo === 1 ? ultimoTimestamp1 : ultimoTimestamp2;
                 const passou = Math.floor((agora - ts) / 1000);
-                const restante = Math.max(0, 12 - passou);
+                const restante = Math.max(0, 8 - passou);
                 const el = document.getElementById('timerTexto');
                 if (restante > 0 && passou > 1) {
                     el.textContent = restante + 's';
@@ -636,14 +639,21 @@
             iniciarTimer();
             setTimeout(() => {
                 fetch('/api/1/historico').then(r => r.json()).then(d => {
-                    todasVelas1 = d;
+                    // Preenche sem sobrescrever (SSE pode ter chegado antes)
+                    if (Array.isArray(d) && d.length) {
+                        todasVelas1.length = 0;
+                        todasVelas1.push(...d);
+                    }
                     if (aviatorAtivo === 1) renderizarTudo();
-                });
+                }).catch(() => {});
                 fetch('/api/2/historico').then(r => r.json()).then(d => {
-                    todasVelas2 = d;
+                    if (Array.isArray(d) && d.length) {
+                        todasVelas2.length = 0;
+                        todasVelas2.push(...d);
+                    }
                     if (aviatorAtivo === 2) renderizarTudo();
-                });
-            }, 1000);
+                }).catch(() => {});
+            }, 500);
         });
     </script>
     <div style="text-align:center;padding:20px 0 10px;font-size:12px;color:#555;border-top:1px solid rgba(255,255,255,0.05);margin-top:30px;">

@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "alarms",
-    "background"
+    "background",
+    "storage"
   ],
   "host_permissions": [
     "https://*.spribegaming.com/*",
