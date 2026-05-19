@@ -18,55 +18,43 @@ app = Flask(__name__,
     static_folder=os.path.join(os.path.dirname(__file__), 'static'),
     template_folder=os.path.join(os.path.dirname(__file__), 'templates')
 )
-app.config['SECRET_KEY'] = os.urandom(24).hex()
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 app.config['SESSION_PERMANENT'] = True
 CORS(app, supports_credentials=True)
 
 collector1 = DataCollector()
 collector2 = DataCollector()
 
-# Inicializa banco na importação
+# Inicializa banco
 init_db()
 
-# ===== SSE (Server-Sent Events) =====
+# ===== INICIA COLLECTORS AQUI (funciona com Gunicorn no Render) =====
+collector1.callback = lambda r: notificar_clientes('nova_rodada_1', r.to_dict()) or notificar_clientes('atualizar_ultimas_1', collector1.get_ultimas(20))
+collector2.callback = lambda r: notificar_clientes('nova_rodada_2', r.to_dict()) or notificar_clientes('atualizar_ultimas_2', collector2.get_ultimas(20))
+collector1.iniciar()
+collector2.iniciar()
+
+# ===== SSE =====
 ultimos_eventos = []
 MAX_EVENTOS = 100
 
 def notificar_clientes(evento, dados):
-    """Adiciona evento à fila SSE"""
     global ultimos_eventos
     ultimos_eventos.append({"evento": evento, "dados": dados, "timestamp": time.time()})
     if len(ultimos_eventos) > MAX_EVENTOS:
         ultimos_eventos = ultimos_eventos[-MAX_EVENTOS:]
 
-def on_nova_rodada_1(rodada):
-    dados = rodada.to_dict()
-    notificar_clientes('nova_rodada_1', dados)
-    notificar_clientes('atualizar_ultimas_1', collector1.get_ultimas(20))
-
-def on_nova_rodada_2(rodada):
-    dados = rodada.to_dict()
-    notificar_clientes('nova_rodada_2', dados)
-    notificar_clientes('atualizar_ultimas_2', collector2.get_ultimas(20))
-
-collector1.callback = on_nova_rodada_1
-collector2.callback = on_nova_rodada_2
-
 @app.route('/api/stream')
 def stream_sse():
-    """SSE endpoint - substitui WebSocket"""
     def gerar():
         ultimo_ts = time.time()
-        # Envia estado inicial
         yield f"event: conectado\ndata: {json.dumps({'status': 'ok'})}\n\n"
-        # Aviator 1
         if collector1.ultima_rodada:
             yield f"event: ultima_rodada_1\ndata: {json.dumps(collector1.ultima_rodada.to_dict())}\n\n"
         if collector1.penultima_rodada:
             yield f"event: penultima_rodada_1\ndata: {json.dumps(collector1.penultima_rodada.to_dict())}\n\n"
         yield f"event: historico_1\ndata: {json.dumps(collector1.get_ultimas(50))}\n\n"
         yield f"event: estatisticas_1\ndata: {json.dumps(collector1.get_estatisticas())}\n\n"
-        # Aviator 2
         if collector2.ultima_rodada:
             yield f"event: ultima_rodada_2\ndata: {json.dumps(collector2.ultima_rodada.to_dict())}\n\n"
         if collector2.penultima_rodada:
@@ -74,88 +62,59 @@ def stream_sse():
         yield f"event: historico_2\ndata: {json.dumps(collector2.get_ultimas(50))}\n\n"
         yield f"event: estatisticas_2\ndata: {json.dumps(collector2.get_estatisticas())}\n\n"
         yield f"event: extensao_status\ndata: {json.dumps({'conectada': EXTENSAO_CONECTADA and (time.time() - ultimo_heartbeat) < 60, 'total_rodadas': len(collector1.historico) + len(collector2.historico)})}\n\n"
-
         while True:
-            # Verifica novos eventos
             novos = [e for e in ultimos_eventos if e['timestamp'] > ultimo_ts]
             for evento in novos:
                 yield f"event: {evento['evento']}\ndata: {json.dumps(evento['dados'])}\n\n"
             if novos:
                 ultimo_ts = max(e['timestamp'] for e in novos)
-            # Keepalive a cada 10s
             yield f": keepalive\n\n"
             time.sleep(1)
 
-    return Response(
-        stream_with_context(gerar()),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive"
-        }
-    )
+    return Response(stream_with_context(gerar()), mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
-# ===== WEBHOOK - RECEBE DADOS DA EXTENSÃO =====
+# ===== WEBHOOK =====
 ultimo_heartbeat = 0
 EXTENSAO_CONECTADA = False
 
 @app.route('/api/webhook', methods=['POST'])
 def api_webhook():
-    """Recebe dados da extensão do Kiwi Browser"""
     global ultimo_heartbeat, EXTENSAO_CONECTADA
     try:
         dados = request.get_json()
         if not dados:
             return jsonify({"erro": "Dados inválidos"}), 400
 
-        # Heartbeat
         if dados.get('heartbeat'):
             EXTENSAO_CONECTADA = True
             ultimo_heartbeat = time.time()
             return jsonify({"ok": True, "status": "heartbeat_recebido"})
 
-        # Processa rodadas recebidas - roteia para aviator 1 ou 2
         rodadas = dados.get('rodadas', [])
         aviador = dados.get('aviator', 1)
         collector = collector1 if aviador == 1 else collector2
-        fonte = dados.get('fonte', 'desconhecida')
         EXTENSAO_CONECTADA = True
         ultimo_heartbeat = time.time()
 
         for r in rodadas:
-            rodada_id = r.get('rodada')
-            if rodada_id is None: rodada_id = r.get('id')
-            if rodada_id is None: rodada_id = r.get('round')
-            if rodada_id is None: rodada_id = int(time.time() * 1000)
-            mult = r.get('mult')
-            if mult is None: mult = r.get('multiplicador')
-            if mult is None: mult = r.get('multiplier')
-            if mult is None: mult = r.get('value')
-            timestamp = r.get('timestamp')
-            if timestamp is None: timestamp = r.get('time')
-            if timestamp is None: timestamp = r.get('hora')
+            rodada_id = r.get('rodada') or r.get('id') or r.get('round') or int(time.time())
+            mult = r.get('multiplicador') or r.get('mult') or r.get('multiplier') or r.get('value')
+            timestamp = r.get('timestamp') or r.get('time') or r.get('hora')
             if mult:
                 from models import Rodada
                 try:
                     rodada_num = int(str(rodada_id).strip())
-                except (ValueError, TypeError):
-                    rodada_num = int(time.time() * 1000) % 10000000
-                rodada_obj = Rodada(rodada_num, float(mult), timestamp)
-                collector._adicionar_rodada(rodada_obj)
+                except:
+                    rodada_num = int(time.time()) % 10000000
+                collector._adicionar_rodada(Rodada(rodada_num, float(mult), timestamp))
 
-        return jsonify({
-            "ok": True,
-            "rodadas_recebidas": len(rodadas),
-            "aviator": aviador,
-            "status": "extensao_conectada"
-        })
+        return jsonify({"ok": True, "rodadas_recebidas": len(rodadas), "aviator": aviador, "status": "extensao_conectada"})
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
 @app.route('/api/webhook/status')
 def api_webhook_status():
-    """Status da conexão com a extensão"""
     agora = time.time()
     conectada = EXTENSAO_CONECTADA and (agora - ultimo_heartbeat) < 60
     return jsonify({
@@ -167,7 +126,6 @@ def api_webhook_status():
         "aviator2_rodadas": len(collector2.historico)
     })
 
-# ===== PÁGINAS PÚBLICAS =====
 @app.route('/')
 def home():
     if session.get('tipo') == 'master':
@@ -189,7 +147,6 @@ def fazer_logout():
     logout()
     return redirect('/login')
 
-# ===== PAINEL MASTER (ADMIN) =====
 @app.route('/admin')
 @master_required
 def admin_dashboard():
@@ -205,7 +162,7 @@ def admin_clientes():
 @app.route('/admin/clientes/criar', methods=['POST'])
 @master_required
 def admin_criar_cliente():
-    login = request.form.get('login')
+    login_val = request.form.get('login')
     senha = request.form.get('senha')
     nome = request.form.get('nome', '')
     observacao = request.form.get('observacao', '')
@@ -214,7 +171,7 @@ def admin_criar_cliente():
     fatores = {'minutos': 1, 'horas': 60, 'dias': 1440}
     tempo = tempo_valor * fatores.get(tempo_unidade, 1)
     slug = request.form.get('slug', '').strip() or None
-    resultado = criar_cliente(login, senha, nome, observacao, tempo, slug)
+    resultado = criar_cliente(login_val, senha, nome, observacao, tempo, slug)
     if resultado['ok']:
         return redirect('/admin/clientes')
     return render_template('admin/clientes.html', erro=resultado['erro'], clientes=listar_clientes())
@@ -247,9 +204,7 @@ def admin_bloquear_cliente(id):
 @app.route('/admin/clientes/<int:id>/slug', methods=['POST'])
 @master_required
 def admin_alterar_slug(id):
-    slug = request.form.get('slug', '').strip()
-    if not slug:
-        slug = None
+    slug = request.form.get('slug', '').strip() or None
     resultado = atualizar_slug(id, slug)
     if not resultado['ok']:
         return render_template('admin/clientes.html', erro=resultado['erro'], clientes=listar_clientes())
@@ -258,10 +213,7 @@ def admin_alterar_slug(id):
 @app.route('/admin/clientes/<int:id>/excluir', methods=['POST'])
 @master_required
 def admin_excluir_cliente(id):
-    if excluir_cliente_db(id):
-        flash('Cliente excluído com sucesso!', 'success')
-    else:
-        flash('Erro ao excluir cliente.', 'error')
+    excluir_cliente_db(id)
     return redirect('/admin/clientes')
 
 @app.route('/admin/clientes/<int:id>')
@@ -289,13 +241,9 @@ def admin_exportar_csv():
         writer.writerows(dados)
     csv_content = output.getvalue()
     output.close()
-    return Response(
-        csv_content,
-        mimetype='text/csv',
-        headers={"Content-disposition": "attachment; filename=relatorio_clientes.csv"}
-    )
+    return Response(csv_content, mimetype='text/csv',
+        headers={"Content-disposition": "attachment; filename=relatorio_clientes.csv"})
 
-# ===== PAINEL DO CLIENTE =====
 @app.route('/painel/<slug>')
 def cliente_login(slug):
     cliente = get_cliente_por_slug(slug)
@@ -313,9 +261,9 @@ def cliente_autenticar(token):
     cliente = get_cliente_por_token(token)
     if not cliente:
         return "Link inválido", 404
-    login = request.form.get('login')
+    login_val = request.form.get('login')
     senha = request.form.get('senha')
-    sucesso, erro = login_cliente(login, senha)
+    sucesso, erro = login_cliente(login_val, senha)
     if sucesso:
         return redirect(f'/painel/{token}/dash')
     return render_template('cliente/login.html', token=token, erro=erro)
@@ -333,7 +281,6 @@ def cliente_sair(token):
     logout()
     return redirect(f'/painel/{token}')
 
-# ===== API =====
 def _get_collector(n):
     return collector1 if n == 1 else collector2
 
@@ -365,7 +312,7 @@ def api_historico_aviator(aviator):
 def api_historico_por_cor(aviator, cor):
     cor = cor.lower()
     if cor not in ['azul', 'roxa', 'rosa']:
-        return jsonify({"erro": "Cor inválida. Use: azul, roxa, rosa"}), 400
+        return jsonify({"erro": "Cor inválida"}), 400
     return jsonify(_get_collector(aviator).get_por_cor(cor))
 
 @app.route('/api/<int:aviator>/estatisticas')
@@ -406,15 +353,14 @@ def api_penultima():
 
 @app.route('/api/<int:aviator>/minutagem')
 def api_minutagem_aviator(aviator):
-    """Estatísticas agrupadas por minuto"""
-    c = _get_collector(aviator)
     from collections import defaultdict
+    c = _get_collector(aviator)
     minutos = defaultdict(lambda: {"qtd": 0, "total": 0.0, "max": 0, "azul": 0, "roxa": 0, "rosa": 0})
     for r in c.historico:
         ts = r.timestamp or "00:00"
         if ":" not in ts:
             continue
-        minuto = ts[:5]  # HH:MM
+        minuto = ts[:5]
         m = minutos[minuto]
         m["qtd"] += 1
         m["total"] += r.multiplicador
@@ -422,28 +368,15 @@ def api_minutagem_aviator(aviator):
         m[r.cor] = m.get(r.cor, 0) + 1
     resultado = []
     for minuto, dados in sorted(minutos.items(), reverse=True)[:60]:
-        resultado.append({
-            "minuto": minuto,
-            "qtd": dados["qtd"],
+        resultado.append({"minuto": minuto, "qtd": dados["qtd"],
             "media": round(dados["total"] / dados["qtd"], 2) if dados["qtd"] > 0 else 0,
-            "max": round(dados["max"], 2),
-            "azul": dados["azul"],
-            "roxa": dados["roxa"],
-            "rosa": dados["rosa"]
-        })
+            "max": round(dados["max"], 2), "azul": dados["azul"], "roxa": dados["roxa"], "rosa": dados["rosa"]})
     return jsonify(resultado)
 
 @app.route('/status')
 def status_page():
     return render_template('status.html')
 
-
 if __name__ == '__main__':
     from waitress import serve
-    print(f"[INICIANDO] Painel Aviator SaaS - Porta {config.PORT}")
-    print(f"[MODO] {'Simulado' if config.SIMULAR_DADOS else 'Real (Sorte da Bet)'}")
-    collector1.iniciar()
-    collector2.iniciar()
-    print(f"[OK] Servidor rodando em http://{config.HOST}:{config.PORT}")
-    print(f"[OK] Aviator 1 + Aviator 2 ativos")
     serve(app, host=config.HOST, port=config.PORT)
