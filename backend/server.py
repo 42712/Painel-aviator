@@ -28,12 +28,6 @@ collector2 = DataCollector()
 # Inicializa banco
 init_db()
 
-# ===== INICIA COLLECTORS AQUI (funciona com Gunicorn no Render) =====
-collector1.callback = lambda r: notificar_clientes('nova_rodada_1', r.to_dict()) or notificar_clientes('atualizar_ultimas_1', collector1.get_ultimas(20))
-collector2.callback = lambda r: notificar_clientes('nova_rodada_2', r.to_dict()) or notificar_clientes('atualizar_ultimas_2', collector2.get_ultimas(20))
-collector1.iniciar()
-collector2.iniciar()
-
 # ===== SSE =====
 ultimos_eventos = []
 MAX_EVENTOS = 100
@@ -43,6 +37,13 @@ def notificar_clientes(evento, dados):
     ultimos_eventos.append({"evento": evento, "dados": dados, "timestamp": time.time()})
     if len(ultimos_eventos) > MAX_EVENTOS:
         ultimos_eventos = ultimos_eventos[-MAX_EVENTOS:]
+
+# ===== INICIA COLLECTORS AQUI (funciona com Gunicorn no Render) =====
+collector1.callback = lambda r: notificar_clientes('nova_rodada_1', r.to_dict()) or notificar_clientes('atualizar_ultimas_1', collector1.get_ultimas(20))
+collector2.callback = lambda r: notificar_clientes('nova_rodada_2', r.to_dict()) or notificar_clientes('atualizar_ultimas_2', collector2.get_ultimas(20))
+collector1.iniciar()
+collector2.iniciar()
+
 
 @app.route('/api/stream')
 def stream_sse():
