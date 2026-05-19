@@ -73,7 +73,7 @@ def stream_sse():
             time.sleep(1)
 
     return Response(stream_with_context(gerar()), mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 # ===== WEBHOOK - RECEBE DADOS DA EXTENSÃO v4.0 =====
 ultimo_heartbeat = 0
