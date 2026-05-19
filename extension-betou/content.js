@@ -1,276 +1,327 @@
-// ===== Content Script - Betou Coletor v6.3 =====
-const SERVER_URL = "https://painel-aviator.onrender.com";
-const INTERVALO_ENVIO = 3;
+// ===== Content Script v4.0 - Betou Aviator Collector =====
+// Captura rodadas em tempo real via WebSocket interception + DOM fallback
+// Coleta: vela (multiplicador), ID rodada, horário (HH:MM:SS), soma
+// Envia para o servidor Render via webhook + SSE keepalive
 
-const isBetou = location.hostname.includes('betou');
-const isSpribe = location.hostname.includes('spribegaming');
+const SERVER_BASE = "https://painel-aviator.onrender.com";
+const WS_CHECK_INTERVAL = 2000;
+const DOM_SCAN_INTERVAL = 1500;
+const FLUSH_INTERVAL = 3000;
+const MAX_BATCH = 50;
+const MAX_SEEN = 8000;
 
-var ultimasVelas = [];
-var ultimoEnvio = Date.now();
-var dedupSet = new Set();
-var config = { token: 'default', aviator: 1 };
-var ultimoMult = null;
-var rodadaAtual = null;
-var rodadaUltimaCaptura = null;
-var totalEnviadas = 0;
+let ENV = {
+  rodadasVistas: new Set(),
+  lote: [],
+  enviadas: 0,
+  erros: 0,
+  conectado: false,
+  ultimaVela: null,
+  ultimaRodada: null,
+  flushTimer: null,
+  enviando: false,
+  wsInterceptado: false,
+  token: 'default',
+  painel: 1,
+  domParserAtivo: false
+};
 
-chrome.storage.sync.get(['token', 'aviator'], function(cfg) {
-  if (cfg.token) config.token = cfg.token;
-  if (cfg.aviator) config.aviator = parseInt(cfg.aviator);
-});
+// Carregar config
+try { chrome.storage?.sync?.get(['token','painel'], c => {
+  if (c.token) ENV.token = c.token;
+  if (c.painel) ENV.painel = parseInt(c.painel);
+}); } catch(e) {}
 
-function getPainel() {
-  try {
-    if (isBetou && location.href.includes('/aviator2')) return 1;
-    return config.aviator || 1;
-  } catch(e) { return config.aviator || 1; }
+try { chrome.storage?.onChanged?.addListener((ch) => {
+  if (ch.token) ENV.token = ch.token.newValue || 'default';
+  if (ch.painel) ENV.painel = parseInt(ch.painel.newValue) || 1;
+}); } catch(e) {}
+
+// ===== UTILITÁRIOS =====
+function fmtTime(d) {
+  const t = d || new Date();
+  if (typeof t === 'string') return t.substring(0,8);
+  return t.toTimeString().slice(0,8);
 }
 
-function getTimeNow() {
-  return new Date().toLocaleTimeString('pt-BR');
+function calcSoma(v) {
+  let s = 0;
+  for (const c of v.toFixed(2)) if (c>='0'&&c<='9') s += parseInt(c);
+  return s;
 }
 
-// ===== INJETA main.js NO MAIN WORLD =====
-try {
-  var s = document.createElement('script');
-  s.src = chrome.runtime.getURL('main.js');
-  s.onload = function() { s.remove(); };
-  document.documentElement.appendChild(s);
-} catch(e) {}
+function corPorMult(v) {
+  if (v < 2) return 'azul';
+  if (v < 10) return 'roxa';
+  return 'rosa';
+}
 
-// ===== RECEBE DADOS DO MAIN WORLD =====
-window.addEventListener('message', function(event) {
-  if (event.source !== window || event.data.type !== '__BETOU_WS') return;
+function detectarPainel() {
   try {
-    var raw = event.data.data;
-    if (raw.startsWith('a[')) {
-      var arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        for (var i = 0; i < arr.length; i++) {
-          if (typeof arr[i] === 'string') processarMsg(arr[i]);
-        }
-      }
-      return;
-    }
-    processarMsg(raw);
+    const u = window.top.location.href;
+    if (u.includes('aviator2')) return 2;
+    if (u.includes('aviator1')) return 1;
   } catch(e) {}
-});
-
-function processarMsg(msg) {
-  try {
-    var clean = msg.replace(/\x00/g, '').trim();
-    if (clean.startsWith('{')) {
-      var json = JSON.parse(clean);
-      var r = extrair(json);
-      if (r) { addVela({ rodada: r.r, multiplicador: r.m, timestamp: getTimeNow(), origem: 'ws' }); }
-      return;
-    }
-    var idx = clean.indexOf('\n\n');
-    if (idx > 0) {
-      var body = clean.substring(idx + 2).replace(/\x00/g, '').trim();
-      if (body.startsWith('{')) {
-        var json = JSON.parse(body);
-        var r = extrair(json);
-        if (r) { addVela({ rodada: r.r, multiplicador: r.m, timestamp: getTimeNow(), origem: 'stomp' }); }
-      }
-    }
-  } catch(e) {}
+  return ENV.painel;
 }
 
-// ===== CAPTURA RODADA ATUAL =====
-function capturarRodada() {
+// ===== ENVIO AO SERVIDOR =====
+async function flushBatch() {
+  if (ENV.lote.length === 0 || ENV.enviando) return;
+  ENV.enviando = true;
+  const batch = ENV.lote.splice(0, MAX_BATCH);
   try {
-    var spans = document.querySelectorAll('span.text-uppercase');
-    for (var i = 0; i < spans.length; i++) {
-      var txt = spans[i].innerText.trim();
-      var m = txt.match(/(\d{6,})/);
-      if (m) {
-        var num = parseInt(m[1]);
-        if (num > 100000) {
-          rodadaAtual = num;
-          return num;
-        }
-      }
+    const r = await fetch(`${SERVER_BASE}/api/webhook`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        token: ENV.token,
+        painel: detectarPainel(),
+        rodadas: batch
+      })
+    });
+    if (r.ok) {
+      ENV.enviadas += batch.length;
+      console.log(`[Aviator] Enviadas ${batch.length} rodadas | total: ${ENV.enviadas}`);
+    } else {
+      ENV.erros++;
+      ENV.lote.unshift(...batch);
     }
-    // Fallback: qualquer texto com numero grande
-    var todos = document.querySelectorAll('span, div');
-    for (var i = 0; i < todos.length; i++) {
-      if (todos[i].children.length) continue;
-      var txt = (todos[i].innerText || todos[i].textContent || '').trim();
-      var m = txt.match(/[Rr]odada\s+(\d{6,})/);
-      if (m) {
-        var num = parseInt(m[1]);
-        if (num > 100000) { rodadaAtual = num; return num; }
-      }
-    }
-  } catch(e) {}
-  return rodadaAtual;
+  } catch(e) {
+    ENV.erros++;
+    ENV.lote.unshift(...batch);
+  }
+  ENV.enviando = false;
 }
 
-// ===== CAPTURA MULTIPLICADOR DO JOGO =====
-function capturarDOM() {
+function notificarPopup() {
   try {
-    var elMult = document.querySelector('.bubble-multiplier');
-    if (!elMult) return;
-    var txt = elMult.innerText.trim();
-    var mult = parseFloat(txt.replace('x', '').replace(',', '.'));
-    if (isNaN(mult) || mult < 1 || mult > 100000) return;
-
-    var elTime = document.querySelector('.header__info-time');
-    var horario = elTime ? elTime.innerText.trim() : getTimeNow();
-
-    var rodada = capturarRodada();
-
-    if (mult !== ultimoMult) {
-      ultimoMult = mult;
-      var key = (rodada || '') + '_' + mult.toFixed(2);
-      if (dedupSet.has(key)) return;
-      dedupSet.add(key);
-      console.log('[Betou] DOM:', mult.toFixed(2)+'x', horario, rodada ? '#'+rodada : '');
-      addVela({ rodada: rodada, multiplicador: mult, timestamp: horario, origem: 'dom' });
-    }
-  } catch(e) {}
-}
-
-// ===== CAPTURA HISTORICO (payouts) =====
-function capturarPayout() {
-  try {
-    var payouts = document.querySelectorAll('.payout');
-    if (!payouts.length) return;
-
-    // Atualiza rodada atual
-    capturarRodada();
-
-    payouts.forEach(function(el, idx) {
-      var txt = el.innerText.trim();
-      var mult = parseFloat(txt.replace('x', '').replace(',', '.'));
-      if (isNaN(mult) || mult < 1 || mult > 100000) return;
-
-      // .payout[0] = mais recente = rodadaAtual-1, .payout[1] = rodadaAtual-2, etc
-      var rodadaEstimada = rodadaAtual ? (rodadaAtual - 1 - idx) : null;
-
-      var key = (rodadaEstimada || 'hist_') + '_' + mult.toFixed(2) + '_' + idx;
-      if (dedupSet.has(key)) return;
-      dedupSet.add(key);
-
-      // Estima horario: cada vela ~35s atras, idx 0 = agora -35s, idx 9 = agora -350s
-      var horario = new Date(Date.now() - (idx + 1) * 35000);
-      horario = horario.toLocaleTimeString('pt-BR');
-      console.log('[Betou] 📜 #' + (rodadaEstimada || '?') + ' ' + mult.toFixed(2) + 'x');
-      addVela({ rodada: rodadaEstimada, multiplicador: mult, timestamp: horario, origem: 'historico' });
+    chrome.runtime.sendMessage({
+      tipo: 'status',
+      conectada: ENV.conectado,
+      ultimaVela: ENV.ultimaVela,
+      totalEnviadas: ENV.enviadas,
+      totalErros: ENV.erros,
+      ultimaRodada: ENV.ultimaRodada
     });
   } catch(e) {}
 }
 
-// MutationObserver
-var obsTimeout = null;
-var observer = new MutationObserver(function() {
-  if (obsTimeout) return;
-  obsTimeout = setTimeout(function() { obsTimeout = null; capturarRodada(); capturarDOM(); }, 500);
-});
+function processarRodada(rodadaId, mult, ts) {
+  if (!rodadaId || mult < 0.01) return;
+  const key = String(rodadaId);
+  if (ENV.rodadasVistas.has(key)) return;
+  ENV.rodadasVistas.add(key);
+  if (ENV.rodadasVistas.size > MAX_SEEN) {
+    ENV.rodadasVistas = new Set([...ENV.rodadasVistas].slice(-MAX_SEEN/2));
+  }
 
-if (document.body) {
-  observer.observe(document.body, { childList: true, subtree: true, attributes: false });
-} else {
-  document.addEventListener('DOMContentLoaded', function() {
-    observer.observe(document.body, { childList: true, subtree: true, attributes: false });
+  const v = parseFloat(mult.toFixed(2));
+  const tm = fmtTime(ts);
+  const s = calcSoma(v);
+  const c = corPorMult(v);
+
+  ENV.ultimaVela = `${v.toFixed(2)}x`;
+  ENV.conectado = true;
+  ENV.ultimaRodada = { rodada: key, multiplicador: v, timestamp: tm, soma: s, cor: c };
+
+  ENV.lote.push({
+    rodada: key,
+    multiplicador: v,
+    timestamp: tm,
+    soma: s,
+    cor: c,
+    painel: detectarPainel()
   });
+
+  console.log(`[Aviator] 🎯 #${key} | ${v.toFixed(2)}x | ${tm} | soma=${s}`);
+
+  notificarPopup();
+  if (ENV.lote.length >= 5) flushBatch();
 }
 
-setInterval(capturarRodada, 2000);
-setInterval(capturarDOM, 800);
-setInterval(capturarPayout, 5000);
+// ===== 1. INTERCEPTAÇÃO DE WEBSOCKET =====
+// Baseado no Guia Técnico: Spribe usa mensagens JSON via WebSocket
+// com formatos: game_end, round_ended, complete, etc.
+(function interceptWS() {
+  const NativeWS = window.WebSocket;
+  if (!NativeWS) {
+    console.warn('[Aviator] WebSocket não disponível');
+    return;
+  }
 
-// ===== EXTRAIR =====
-function extrair(data) {
-  if (!data || typeof data !== 'object') return null;
-  if (data.round && data.multiplier !== undefined) return { r: data.round, m: parseFloat(data.multiplier) };
-  if (data.rodada && data.mult !== undefined) return { r: data.rodada, m: parseFloat(data.mult) };
-  if (data.roundId && data.multiplier !== undefined) return { r: data.roundId, m: parseFloat(data.multiplier) };
-  if (data.id && data.value !== undefined) return { r: data.id, m: parseFloat(data.value) };
-  if (data.r && data.m !== undefined) return { r: data.r, m: parseFloat(data.m) };
-  if (data.rodada && data.multiplicador !== undefined) return { r: data.rodada, m: parseFloat(data.multiplicador) };
-  if (data.vela && !isNaN(parseFloat(data.vela))) return { r: data.rodada || 0, m: parseFloat(data.vela) };
-  if (Array.isArray(data)) return extrair(data[0]);
-  if (data.data && typeof data.data === 'object') return extrair(data.data);
-  if (data.payload) return extrair(data.payload);
-  if (data.result) return extrair(data.result);
-  if (data.args) return extrair(data.args);
-  if (data.body) return extrair(data.body);
-  return null;
-}
+  const origSend = NativeWS.prototype.send;
+  NativeWS.prototype.send = function(data) {
+    return origSend.call(this, data);
+  };
 
-// ===== ENVIO =====
-function addVela(rodada) {
-  var rodId = rodada.rodada || rodada.r || 0;
-  if (rodId && dedupSet.has('r_' + rodId)) return;
-  if (rodId) dedupSet.add('r_' + rodId);
+  window.WebSocket = new Proxy(NativeWS, {
+    construct(Target, args) {
+      const ws = new Target(...args);
+      const url = (args[0] || '').toString().toLowerCase();
 
-  if (dedupSet.size > 5000) dedupSet = new Set([...dedupSet].slice(-2500));
+      ws.addEventListener('message', function onMsg(ev) {
+        try {
+          let raw = ev.data;
+          if (raw instanceof Blob) {
+            const r = new FileReader();
+            r.onload = () => parseWS(r.result);
+            r.readAsText(raw);
+            return;
+          }
+          if (raw instanceof ArrayBuffer) {
+            raw = new TextDecoder().decode(raw);
+          }
+          if (typeof raw === 'string') parseWS(raw);
+        } catch(e) { /* ignorar */ }
+      });
 
-  ultimasVelas.push({
-    rodada: rodId,
-    multiplicador: rodada.multiplicador || rodada.m || rodada.mult || 0,
-    timestamp: rodada.timestamp || getTimeNow(),
-    origem: rodada.origem || 'extensao'
+      return ws;
+    }
   });
-  if (ultimasVelas.length > 50) ultimasVelas = ultimasVelas.slice(-50);
-  enviar();
+
+  console.log('[Aviator] WebSocket interceptado');
+})();
+
+function parseWS(raw) {
+  try {
+    const msg = JSON.parse(raw);
+
+    // --- Extrair dados da rodada ---
+    let rid = null, mult = null;
+
+    // Formato Spribe principal
+    if (msg.type === 'game_end' || msg.type === 'round_ended' || msg.type === 'end') {
+      rid = msg.data?.round_id || msg.round_id || msg.data?.id;
+      mult = msg.data?.multiplier || msg.multiplier || msg.data?.value;
+    }
+    // Formato evento
+    else if (msg.event === 'complete' || msg.event === 'game_complete') {
+      rid = msg.round?.id || msg.round_id || msg.data?.round_id;
+      mult = msg.round?.multiplier || msg.multiplier || msg.data?.multiplier;
+    }
+    // Formato data direto
+    else if (msg.data?.round_id && msg.data?.multiplier !== undefined) {
+      rid = msg.data.round_id;
+      mult = msg.data.multiplier;
+    }
+    // Formato aninhado (Proteus/Spribe)
+    else if (msg.message?.round?.id && msg.message?.round?.multiplier !== undefined) {
+      rid = msg.message.round.id;
+      mult = msg.message.round.multiplier;
+    }
+    // Formato "result" array
+    else if (msg.result?.round_id && msg.result?.multiplier !== undefined) {
+      rid = msg.result.round_id;
+      mult = msg.result.multiplier;
+    }
+    // Formato "payload"
+    else if (msg.payload?.round_id && msg.payload?.multiplier !== undefined) {
+      rid = msg.payload.round_id;
+      mult = msg.payload.multiplier;
+    }
+
+    if (rid && mult !== null) {
+      const val = parseFloat(mult);
+      if (!isNaN(val) && val >= 1.0) {
+        processarRodada(String(rid), val);
+      }
+    }
+  } catch(e) {}
 }
 
-function enviar() {
-  var agora = Date.now();
-  if (agora - ultimoEnvio < INTERVALO_ENVIO * 1000) return;
-  if (ultimasVelas.length === 0) return;
-  ultimoEnvio = agora;
-  var lote = ultimasVelas.slice();
-  ultimasVelas = [];
+// ===== 2. MONITORAMENTO DE DOM (FALLBACK) =====
+// Para quando o WS não é capturado, lê o DOM
+let textosVistos = new Set();
 
-  totalEnviadas += lote.length;
-  var ultima = lote[lote.length - 1];
+function escanearDOM() {
+  const sel = [
+    '[class*="multiplier"],[class*="Multiplier"]',
+    '[class*="bubble"],[class*="Bubble"]',
+    '.bubble-multiplier',
+    '[class*="game-end"],[class*="game_end"]',
+    '[class*="round"],[class*="Round"]',
+    '[data-testid*="multiplier"]',
+    '[class*="value"],[class*="Value"]'
+  ].join(',');
 
-  fetch(SERVER_URL + '/api/webhook', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fonte: 'extensao_betou',
-      token: config.token,
-      aviator: getPainel(),
-      rodadas: lote,
-      timestamp: new Date().toISOString()
-    })
-  }).then(function() {
-    chrome.runtime.sendMessage({
-      tipo: 'status', conectada: true,
-      ultimaVela: (ultima.multiplicador || 0).toFixed(2) + 'x',
-      totalEnviadas: totalEnviadas
-    }).catch(function(){});
-  }).catch(function() {
-    ultimasVelas = lote.concat(ultimasVelas);
-    if (ultimasVelas.length > 100) ultimasVelas = ultimasVelas.slice(-100);
-  });
+  const els = document.querySelectorAll(sel);
+  for (const el of els) {
+    const txt = el.textContent.trim();
+    if (!txt || textosVistos.has(txt)) continue;
+
+    // "5.65x" ou "5,65x"
+    let m = txt.match(/(\d+[.,]\d+)\s*x/i);
+    if (m) {
+      const val = parseFloat(m[1].replace(',','.'));
+      if (val >= 1.0 && val < 10000) {
+        const key = `dom_${val.toFixed(2)}_${Math.floor(Date.now()/5000)}`;
+        if (!ENV.rodadasVistas.has(key)) {
+          ENV.rodadasVistas.add(key);
+          // Tentar encontrar round ID
+          let roundEl = el.closest('[class*="round"]') || el.closest('[class*="Round"]') || el.parentElement;
+          let roundTxt = roundEl?.textContent || '';
+          let rm = roundTxt.match(/(?:rodada|round)\s*[#:]?\s*(\d+)/i);
+          let rid = rm ? rm[1] : `dom_${Date.now()}`;
+          processarRodada(String(rid), val);
+        }
+        textosVistos.add(txt);
+      }
+    }
+  }
+
+  if (textosVistos.size > 500) {
+    textosVistos = new Set([...textosVistos].slice(-250));
+  }
 }
 
-// Heartbeat
-setInterval(function() {
-  fetch(SERVER_URL + '/api/webhook', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fonte: 'extensao_betou', token: config.token,
-      aviator: getPainel(), heartbeat: true, timestamp: new Date().toISOString()
-    })
-  }).then(function() {
-    chrome.runtime.sendMessage({ tipo: 'status', conectada: true }).catch(function(){});
-  }).catch(function(){});
-}, 30000);
-
-setInterval(function() {
-  if (ultimasVelas.length > 0) { ultimoEnvio = 0; enviar(); }
-}, 5000);
-
+// MutationObserver para DOM
+let domTimer = null;
 try {
-  var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  setInterval(function() { if (audioCtx.state === 'suspended') audioCtx.resume(); }, 10000);
-} catch(e) {}
+  const obs = new MutationObserver(() => {
+    if (domTimer) return;
+    domTimer = setTimeout(() => { domTimer = null; escanearDOM(); }, 800);
+  });
+  if (document.body) obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+  else {
+    const mo = new MutationObserver(() => {
+      if (document.body) {
+        obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+        mo.disconnect();
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  }
+} catch(e) {
+  console.warn('[Aviator] MutationObserver não disponível');
+}
 
-console.log('[Betou v6.3] Ativo |', location.hostname, '| Painel', getPainel());
+// Polling periódico DOM
+setInterval(escanearDOM, DOM_SCAN_INTERVAL);
+
+// ===== 3. FLUSH PERIÓDICO =====
+setInterval(() => {
+  flushBatch();
+  // Health check
+  fetch(`${SERVER_BASE}/api/ping`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ token: ENV.token })
+  }).catch(() => {});
+}, FLUSH_INTERVAL);
+
+// ===== 4. HEARTBEAT LONGO =====
+setInterval(notificarPopup, 30000);
+
+// ===== 5. INICIALIZAÇÃO =====
+setTimeout(() => {
+  escanearDOM();
+  console.log('[Aviator] Content script v4.0 ativo');
+}, 2000);
+
+// No Kiwi/Android: reiniciar se ficou muito tempo sem atividade
+setInterval(() => {
+  if (ENV.lote.length > 0) flushBatch();
+}, 10000);
+
+console.log('[Aviator] Content script v4.0 carregado');

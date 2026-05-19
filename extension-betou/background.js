@@ -1,88 +1,47 @@
-// Service worker - relay de mensagens entre content script e popup
+// ===== Service Worker v4.0 - Betou Aviator =====
 let estado = {
   conectada: false,
   ultimaVela: '—',
-  totalEnviadas: 0
+  totalEnviadas: 0,
+  totalErros: 0,
+  versao: '4.0',
+  abasAbertas: 0,
+  ultimoUpdate: null,
+  ultimaRodada: null
 };
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  // Content script -> popup
-  if (sender.tab && msg.tipo === 'status') {
-    if (msg.ultimaVela) estado.ultimaVela = msg.ultimaVela;
-    if (msg.totalEnviadas !== undefined) estado.totalEnviadas += msg.totalEnviadas;
-    estado.conectada = msg.conectada;
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.tipo === 'status') {
+    if (msg.ultimaVela !== undefined) estado.ultimaVela = msg.ultimaVela;
+    if (msg.totalEnviadas !== undefined) estado.totalEnviadas = msg.totalEnviadas;
+    if (msg.conectada !== undefined) estado.conectada = msg.conectada;
+    if (msg.ultimaRodada !== undefined) {
+      estado.ultimaRodada = msg.ultimaRodada;
+      estado.ultimoUpdate = Date.now();
+    }
     chrome.runtime.sendMessage({ tipo: 'statusAtualizado', ...estado }).catch(() => {});
-    return false;
   }
 
-  // Popup -> buscar estado atual
   if (msg.tipo === 'getStatus') {
     chrome.tabs.query({
       url: [
+        'https://betou.bet.br/*',
         'https://*.betou.bet.br/*',
         'https://*.spribegaming.com/*'
       ]
     }, (tabs) => {
-      chrome.runtime.sendMessage({
-        tipo: 'statusAtualizado',
-        conectada: estado.conectada,
-        ultimaVela: estado.ultimaVela,
-        totalEnviadas: estado.totalEnviadas,
-        abasAbertas: tabs ? tabs.length : 0
-      }).catch(() => {});
+      estado.abasAbertas = tabs ? tabs.length : 0;
+      if (estado.ultimoUpdate && Date.now() - estado.ultimoUpdate > 90000) {
+        estado.conectada = false;
+      }
+      chrome.runtime.sendMessage({ tipo: 'statusAtualizado', ...estado }).catch(() => {});
     });
     return true;
   }
-
-  // Megatron compat: AVIATOR_DATA do content script
-  if (msg.type === "AVIATOR_DATA" && msg.data) {
-    console.log("[Betou] AVIATOR_DATA received:", msg.data);
-    fetch("https://painel-aviator.onrender.com/api/webhook", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fonte: "extensao_betou",
-        token: "default",
-        aviator: msg.data.aviator || 1,
-        rodadas: [{
-          rodada: msg.data.rodada || msg.data.round || 0,
-          multiplicador: msg.data.mult || msg.data.multiplicador || msg.data.multiplier || msg.data.vela || 0,
-          timestamp: msg.data.horario || msg.data.timestamp || new Date().toLocaleTimeString("pt-BR"),
-          origem: "megatron"
-        }]
-      })
-    }).then(() => {
-      estado.totalEnviadas++;
-      estado.conectada = true;
-      chrome.runtime.sendMessage({ tipo: 'statusAtualizado', ...estado }).catch(() => {});
-    }).catch(() => {});
-    return false;
-  }
-
   return false;
 });
 
-// Heartbeat periodico
-setInterval(() => {
-  fetch("https://painel-aviator.onrender.com/api/webhook", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      heartbeat: true,
-      token: "default",
-      aviator: 0,
-      timestamp: new Date().toISOString()
-    })
-  }).catch(() => {});
-}, 60000);
+// Keepalive Kiwi/Android
+setInterval(() => chrome.storage.local.set({ _ka: Date.now() }), 25000);
 
-// Inicializa
-chrome.runtime.sendMessage({
-  tipo: 'statusAtualizado',
-  conectada: false,
-  ultimaVela: '—',
-  totalEnviadas: 0,
-  abasAbertas: 0
-}).catch(() => {});
-
-console.log('[Betou] Background v5.0');
+console.log('[BetouWorker] v4.0 ativo');

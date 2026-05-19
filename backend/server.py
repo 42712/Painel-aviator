@@ -74,40 +74,63 @@ def stream_sse():
     return Response(stream_with_context(gerar()), mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
-# ===== WEBHOOK =====
+# ===== WEBHOOK - RECEBE DADOS DA EXTENSÃO v4.0 =====
 ultimo_heartbeat = 0
 EXTENSAO_CONECTADA = False
 
+@app.route('/api/ping', methods=['POST'])
+def api_ping():
+    """Health check da extensão"""
+    global ultimo_heartbeat, EXTENSAO_CONECTADA
+    EXTENSAO_CONECTADA = True
+    ultimo_heartbeat = time.time()
+    return jsonify({"ok": True, "status": "pong", "timestamp": time.time()})
+
 @app.route('/api/webhook', methods=['POST'])
 def api_webhook():
+    """Recebe dados da extensão v4.0 (WebSocket + DOM)"""
     global ultimo_heartbeat, EXTENSAO_CONECTADA
     try:
         dados = request.get_json()
         if not dados:
             return jsonify({"erro": "Dados inválidos"}), 400
 
-        if dados.get('heartbeat'):
+        # Health check do content script
+        if dados.get('status') == 'online':
             EXTENSAO_CONECTADA = True
             ultimo_heartbeat = time.time()
-            return jsonify({"ok": True, "status": "heartbeat_recebido"})
+            return jsonify({"ok": True, "status": "online_recebido"})
 
         rodadas = dados.get('rodadas', [])
-        aviador = dados.get('aviator', 1)
-        collector = collector1 if aviador == 1 else collector2
+        aviador = dados.get('painel') or dados.get('aviator', 1)
+        collector = collector1 if int(aviador) == 1 else collector2
         EXTENSAO_CONECTADA = True
         ultimo_heartbeat = time.time()
 
         for r in rodadas:
-            rodada_id = r.get('rodada') or r.get('id') or r.get('round') or int(time.time())
-            mult = r.get('multiplicador') or r.get('mult') or r.get('multiplier') or r.get('value')
-            timestamp = r.get('timestamp') or r.get('time') or r.get('hora')
+            rodada_id = r.get('rodada')
+            if rodada_id is None: rodada_id = r.get('id')
+            if rodada_id is None: rodada_id = r.get('round')
+            if rodada_id is None: rodada_id = int(time.time() * 1000)
+            mult = r.get('multiplicador')
+            if mult is None: mult = r.get('mult')
+            if mult is None: mult = r.get('multiplier')
+            if mult is None: mult = r.get('value')
+            timestamp = r.get('timestamp')
+            if timestamp is None: timestamp = r.get('time')
+            if timestamp is None: timestamp = r.get('hora')
+            soma = r.get('soma', 0)
+            cor = r.get('cor', 'azul')
             if mult:
                 from models import Rodada
                 try:
                     rodada_num = int(str(rodada_id).strip())
-                except:
-                    rodada_num = int(time.time()) % 10000000
-                collector._adicionar_rodada(Rodada(rodada_num, float(mult), timestamp))
+                except (ValueError, TypeError):
+                    rodada_num = int(time.time() * 1000) % 10000000
+                rodada_obj = Rodada(rodada_num, float(mult), timestamp)
+                rodada_obj.soma = soma
+                rodada_obj.cor = cor
+                collector._adicionar_rodada(rodada_obj)
 
         return jsonify({"ok": True, "rodadas_recebidas": len(rodadas), "aviator": aviador, "status": "extensao_conectada"})
     except Exception as e:

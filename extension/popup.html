@@ -1,196 +1,343 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel Aviator</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Segoe UI', sans-serif;
-  width: 320px;
-  background: #0f1923;
-  color: #fff;
-  padding: 16px;
-}
-h1 { font-size: 18px; margin-bottom: 12px; color: #913EF8; }
-.status {
-  background: #1a2936;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 13px;
-}
-.label { color: #8899aa; }
-.conectado { color: #00e676; }
-.desconectado { color: #ff5252; }
-.campo {
-  margin-bottom: 10px;
-}
-.campo label {
-  display: block;
-  font-size: 11px;
-  color: #8899aa;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-.campo input, .campo select {
-  width: 100%;
-  padding: 8px 10px;
-  background: #0f1923;
-  border: 1px solid #2a3a4a;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-}
-.campo input:focus, .campo select:focus {
-  border-color: #913EF8;
-}
-.btn {
-  width: 100%;
-  padding: 10px;
-  background: linear-gradient(135deg, #349CFF, #913EF8);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 8px;
-}
-.btn:hover { opacity: 0.9; }
-.info {
-  font-size: 12px;
-  color: #667788;
-  margin-top: 10px;
-  text-align: center;
-}
-.salvo {
-  font-size: 11px;
-  color: #00e676;
-  text-align: center;
-  margin-top: 4px;
-  visibility: hidden;
-}
-.salvo.visivel { visibility: visible; }
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:       #09111a;
+    --bg2:      #0e1c2b;
+    --bg3:      #152336;
+    --green:    #00e676;
+    --green2:   #00c853;
+    --red:      #ff3d57;
+    --yellow:   #ffd600;
+    --muted:    #4a6072;
+    --text:     #cdd8e3;
+    --radius:   10px;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    width: 340px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 0;
+    user-select: none;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #0a1f33 0%, #0e2a42 100%);
+    padding: 14px 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #1a3048;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '✈';
+    position: absolute;
+    right: -8px;
+    top: -4px;
+    font-size: 52px;
+    opacity: 0.06;
+    transform: rotate(15deg);
+  }
+  .header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), #009688);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .header-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: 0.3px; }
+  .version-badge {
+    margin-left: auto;
+    background: var(--bg3);
+    border: 1px solid #1e3550;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .content { padding: 14px; }
+
+  /* Card de status */
+  .status-card {
+    background: linear-gradient(135deg, var(--bg2), var(--bg3));
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 1px solid #1a2a3e;
+  }
+
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .status-row:last-child { border-bottom: none; }
+  .status-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .status-value { font-size: 13px; font-weight: 600; }
+
+  .conectado { color: var(--green); }
+  .desconectado { color: var(--red); }
+
+  .ultima-vela {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    padding: 12px 0 8px;
+    letter-spacing: 1px;
+  }
+  .vela-cor-azul { color: #349CFF; }
+  .vela-cor-roxa { color: #913EF8; }
+  .vela-cor-rosa { color: #FF2D95; }
+  .vela-cor-padrao { color: #fff; }
+
+  .ultima-info {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .ultima-info span { display: flex; align-items: center; gap: 4px; }
+  .ultima-info strong { color: var(--text); font-weight: 500; }
+
+  /* Config */
+  .config-section {
+    background: var(--bg2);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 14px;
+    border: 1px solid #1a2a3e;
+  }
+  .config-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .campo {
+    margin-bottom: 10px;
+  }
+  .campo:last-child { margin-bottom: 0; }
+  .campo label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .campo input, .campo select {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0a1725;
+    border: 1px solid #1e3550;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .campo input:focus, .campo select:focus {
+    border-color: var(--green);
+  }
+  .campo select option { background: #0a1725; color: #fff; }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #349CFF, #913EF8);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn:active { opacity: 0.8; }
+
+  .salvo-msg {
+    font-size: 11px;
+    color: var(--green);
+    text-align: center;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .salvo-msg.visivel { opacity: 1; }
+
+  .info-footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #1a2a3e;
+  }
 </style>
 </head>
 <body>
-<h1>✈️ Coletor Aviator</h1>
-
-<div class="status">
-  <div class="status-item">
-    <span class="label">Extensão</span>
-    <span id="statusExt" class="conectado">Ativa</span>
+<div class="header">
+  <div class="header-icon">✈</div>
+  <div>
+    <div class="header-title">Aviator Collector</div>
+    <div class="header-sub">Captura em tempo real</div>
   </div>
-  <div class="status-item">
-    <span class="label">Servidor</span>
-    <span id="statusServer" class="desconectado">Verificando...</span>
-  </div>
-  <div class="status-item">
-    <span class="label">Última vela</span>
-    <span id="ultimaVela">—</span>
-  </div>
-  <div class="status-item">
-    <span class="label">Velas enviadas</span>
-    <span id="totalVelas">0</span>
-  </div>
+  <div class="version-badge">v4.0</div>
 </div>
 
-<div style="border-top:1px solid #2a3a4a;padding-top:12px;margin-bottom:8px;">
-  <div class="campo">
-    <label>Token / Slug do Cliente</label>
-    <input type="text" id="inputToken" placeholder="token-ou-slug-do-cliente">
+<div class="content">
+  <!-- Card de Status ao Vivo -->
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-label">Conexão</span>
+      <span class="status-value" id="statusConexao">🔴 Desconectado</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Status</span>
+      <span class="status-value" id="statusInfo">Aguardando...</span>
+    </div>
+    <div class="ultima-vela" id="ultimaVela">—</div>
+    <div class="ultima-info">
+      <span>Rodada: <strong id="rodadaAtual">—</strong></span>
+      <span>Horário: <strong id="horarioAtual">—</strong></span>
+      <span>Soma: <strong id="somaAtual">—</strong></span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Enviadas</span>
+      <span class="status-value" id="totalEnviadas" style="color:var(--green)">0</span>
+    </div>
   </div>
-  <div class="campo">
-    <label>Aviator</label>
-    <select id="inputAviator">
-      <option value="1">Aviator 1</option>
-      <option value="2">Aviator 2</option>
-    </select>
-  </div>
-  <button class="btn" id="btnSalvar">💾 SALVAR CONFIG</button>
-  <div id="msgSalvo" class="salvo">Configuração salva!</div>
-</div>
 
-<button class="btn" id="btnTestar" style="background:#2d7d46;">🔌 Testar Conexão</button>
-<div class="info">Celular precisa estar na página do Aviator (sortedabet.com)</div>
+  <!-- Configuração -->
+  <div class="config-section">
+    <div class="config-title">⚙ Configuração</div>
+    <div class="campo">
+      <label>Token do Cliente</label>
+      <input type="text" id="inputToken" placeholder="Seu token..." />
+    </div>
+    <div class="campo">
+      <label>Painel</label>
+      <select id="selectPainel">
+        <option value="1">Aviator 1</option>
+        <option value="2">Aviator 2</option>
+      </select>
+    </div>
+    <button class="btn" id="btnSalvar">💾 Salvar</button>
+    <div class="salvo-msg" id="salvoMsg">✓ Salvo!</div>
+  </div>
+
+  <div class="info-footer">
+    <div>Abas Betou abertas: <strong id="contadorAbas">0</strong></div>
+    <div style="margin-top:4px">🟢 Coletando na Betou • Enviando para o Render</div>
+  </div>
+</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // Carrega config salva
-  chrome.storage.sync.get(['token', 'aviator'], (cfg) => {
-    if (cfg.token) document.getElementById('inputToken').value = cfg.token;
-    if (cfg.aviator) document.getElementById('inputAviator').value = String(cfg.aviator);
+(function() {
+  // ---- Elementos DOM ----
+  const statusConexao = document.getElementById('statusConexao');
+  const statusInfo = document.getElementById('statusInfo');
+  const ultimaVelaEl = document.getElementById('ultimaVela');
+  const rodadaAtual = document.getElementById('rodadaAtual');
+  const horarioAtual = document.getElementById('horarioAtual');
+  const somaAtual = document.getElementById('somaAtual');
+  const totalEnviadas = document.getElementById('totalEnviadas');
+  const contadorAbas = document.getElementById('contadorAbas');
+  const inputToken = document.getElementById('inputToken');
+  const selectPainel = document.getElementById('selectPainel');
+  const btnSalvar = document.getElementById('btnSalvar');
+  const salvoMsg = document.getElementById('salvoMsg');
+
+  // ---- Carregar config salva ----
+  chrome.storage.sync.get(['token', 'painel'], (cfg) => {
+    if (cfg.token) inputToken.value = cfg.token;
+    if (cfg.painel) selectPainel.value = String(cfg.painel);
   });
 
-  // Salvar config
-  document.getElementById('btnSalvar').onclick = () => {
-    const token = document.getElementById('inputToken').value.trim();
-    const aviator = parseInt(document.getElementById('inputAviator').value);
-    chrome.storage.sync.set({ token, aviator }, () => {
-      const msg = document.getElementById('msgSalvo');
-      msg.classList.add('visivel');
-      setTimeout(() => msg.classList.remove('visivel'), 2000);
+  // ---- Salvar config ----
+  btnSalvar.addEventListener('click', () => {
+    chrome.storage.sync.set({
+      token: inputToken.value.trim() || 'default',
+      painel: parseInt(selectPainel.value)
+    }, () => {
+      salvoMsg.classList.add('visivel');
+      setTimeout(() => salvoMsg.classList.remove('visivel'), 2000);
     });
-  };
+  });
 
-  // Testar conexão
-  const testar = () => {
-    fetch('https://painel-aviator.onrender.com/api/webhook/status')
-      .then(r => r.json())
-      .then(d => {
-        const el = document.getElementById('statusServer');
-        if (d.conectada) {
-          el.textContent = 'Conectado ✅';
-          el.className = 'conectado';
-        } else {
-          el.textContent = 'Aguardando extensão...';
-          el.className = 'desconectado';
-        }
-        if (d.total_rodadas) {
-          document.getElementById('ultimaVela').textContent = d.total_rodadas + ' rodadas';
-        }
-      })
-      .catch(() => {
-        document.getElementById('statusServer').textContent = 'Offline ❌';
-        document.getElementById('statusServer').className = 'desconectado';
-      });
-  };
+  // ---- Atualizar status ----
+  function atualizarStatus(status) {
+    if (status.conectada) {
+      statusConexao.textContent = '🟢 Conectado';
+      statusConexao.className = 'status-value conectado';
+      statusInfo.textContent = 'Coletando rodadas...';
+    } else {
+      statusConexao.textContent = '🔴 Desconectado';
+      statusConexao.className = 'status-value desconectado';
+      statusInfo.textContent = status.abasAbertas > 0 ? 'Aguardando rodada...' : 'Abra a Betou';
+    }
 
-  document.getElementById('btnTestar').onclick = testar;
+    if (status.ultimaVela && status.ultimaVela !== '—') {
+      ultimaVelaEl.textContent = status.ultimaVela;
+      // Cor baseada no valor
+      const val = parseFloat(status.ultimaVela);
+      ultimaVelaEl.className = 'ultima-vela';
+      if (val < 2) ultimaVelaEl.classList.add('vela-cor-azul');
+      else if (val < 10) ultimaVelaEl.classList.add('vela-cor-roxa');
+      else ultimaVelaEl.classList.add('vela-cor-rosa');
+    }
 
-  // Atualiza status via background worker
+    if (status.ultimaRodada) {
+      rodadaAtual.textContent = `#${status.ultimaRodada.rodada}`;
+      horarioAtual.textContent = status.ultimaRodada.timestamp;
+      somaAtual.textContent = status.ultimaRodada.soma;
+    }
+
+    if (status.totalEnviadas !== undefined) {
+      totalEnviadas.textContent = status.totalEnviadas;
+    }
+
+    if (status.abasAbertas !== undefined) {
+      contadorAbas.textContent = status.abasAbertas;
+    }
+  }
+
+  // ---- Escutar atualizações ----
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.tipo === 'statusAtualizado') {
-      if (msg.conectada) {
-        document.getElementById('statusServer').textContent = 'Coletando ✅';
-        document.getElementById('statusServer').className = 'conectado';
-        document.getElementById('statusExt').textContent = 'Ativa';
-        document.getElementById('statusExt').className = 'conectado';
-      }
-      if (msg.ultimaVela && msg.ultimaVela !== '—') {
-        document.getElementById('ultimaVela').textContent = msg.ultimaVela;
-      }
-      if (msg.totalEnviadas !== undefined) {
-        const total = parseInt(localStorage.getItem('totalVelas') || '0') + msg.totalEnviadas;
-        localStorage.setItem('totalVelas', String(total));
-        document.getElementById('totalVelas').textContent = total;
-      }
+      atualizarStatus(msg);
     }
   });
 
-  // Auto-check servidor
-  setInterval(testar, 10000);
-});
+  // ---- Solicitar status ao abrir ----
+  chrome.runtime.sendMessage({ tipo: 'getStatus' });
+})();
 </script>
-
 </body>
 </html>

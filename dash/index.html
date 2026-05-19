@@ -29,7 +29,7 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
         .vela-multiplicador {
-            font-size: 80px;
+            font-size: 120px;
             font-weight: bold;
             font-family: 'Courier New', monospace;
             letter-spacing: 2px;
@@ -46,7 +46,7 @@
         }
         .vela-info div {
             background: rgba(0,0,0,0.3);
-            padding: 8px 20px;
+            padding: 12px 28px;
             border-radius: 50px;
         }
         .vela-info strong {
@@ -74,7 +74,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 16px;
+            font-size: 24px;
             transition: all 0.2s;
         }
         .historico-item:hover {
@@ -161,8 +161,8 @@
                 multEl.textContent = `${rodada.multiplicador}x`;
                 multEl.style.color = getCor(rodada.multiplicador);
             }
-            if (rodadaEl) rodadaEl.textContent = `#${rodada.rodada_id}`;
-            if (horarioEl) horarioEl.textContent = rodada.horario;
+            if (rodadaEl) rodadaEl.textContent = `#${rodada.rodada}`;
+            if (horarioEl) horarioEl.textContent = rodada.timestamp;
             if (somaEl) somaEl.textContent = rodada.soma;
             
             // Animação
@@ -171,42 +171,58 @@
         }
         
         function carregarHistorico() {
-            fetch(`/api/historico/${uuid}`)
+            const aviator = 1;
+            fetch(`/api/${aviator}/ultimas`)
                 .then(res => res.json())
-                .then(rodadas => {
-                    const container = document.getElementById('historico');
-                    if (rodadas.length === 0) {
-                        container.innerHTML = '<div style="text-align:center;color:#666;">Nenhuma rodada ainda</div>';
-                        return;
-                    }
-                    container.innerHTML = rodadas.map(r => `
-                        <div class="historico-item">
-                            <span class="historico-multiplicador" style="color: ${getCor(r.multiplicador)}">${r.multiplicador}x</span>
-                            <span class="historico-rodada">#${r.rodada_id}</span>
-                            <span class="historico-horario">${r.horario}</span>
-                            <span class="historico-soma">Soma: ${r.soma}</span>
-                        </div>
-                    `).join('');
-                    
-                    // Se tiver rodadas, mostra a última na vela
-                    if (rodadas.length > 0) atualizarVela(rodadas[0]);
-                });
+                .then(rodadas => renderizarHistorico(rodadas))
+                .catch(() => {});
         }
-        
+
+        function renderizarHistorico(rodadas) {
+            const container = document.getElementById('historico');
+            if (!rodadas || rodadas.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;">Nenhuma rodada ainda</div>';
+                return;
+            }
+            container.innerHTML = rodadas.slice(0,50).map(r => `
+                <div class="historico-item">
+                    <span class="historico-multiplicador" style="color: ${getCor(r.multiplicador)}">${r.multiplicador}x</span>
+                    <span class="historico-rodada">#${r.rodada}</span>
+                    <span class="historico-horario">${r.timestamp}</span>
+                    <span class="historico-soma">Soma: ${r.soma}</span>
+                </div>
+            `).join('');
+        }
+
         function conectarSSE() {
             if (source) source.close();
             source = new EventSource('/api/stream');
             
-            source.onmessage = (event) => {
+            source.addEventListener('conectado', () => {
+                document.getElementById('status').innerHTML = '🟢 Conectado via SSE';
+                document.getElementById('status').className = 'status';
+                carregarHistorico();
+            });
+
+            source.addEventListener('ultima_rodada_1', (event) => {
                 const data = JSON.parse(event.data);
-                if (data.tipo === 'nova_rodada' && data.rodada) {
-                    atualizarVela(data.rodada);
-                    carregarHistorico(); // Recarrega histórico
-                    document.getElementById('status').innerHTML = '🟢 Atualizado em tempo real';
-                    document.getElementById('status').className = 'status';
+                if (data.rodada) {
+                    atualizarVela(data);
                 }
-            };
-            
+            });
+
+            source.addEventListener('ultima_rodada_2', (event) => {
+                const data = JSON.parse(event.data);
+                if (data.rodada) {
+                    atualizarVela(data);
+                }
+            });
+
+            source.addEventListener('historico_1', (event) => {
+                const data = JSON.parse(event.data);
+                renderizarHistorico(data);
+            });
+
             source.onerror = () => {
                 document.getElementById('status').innerHTML = '🔴 Reconectando...';
                 document.getElementById('status').className = 'status offline';
