@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Painel Aviator Betou",
-  "version": "4.0",
+  "version": "4.1",
   "description": "Coletor de rodadas Aviator Betou - captura WebSocket, vela, horário (HH:MM:SS), soma. Funciona em PC e celular (Kiwi).",
   "permissions": [
     "storage",
@@ -32,6 +32,10 @@
       "match_about_blank": true
     }
   ],
+  "web_accessible_resources": [{
+    "resources": ["main-world.js"],
+    "matches": ["https://betou.bet.br/*", "https://*.betou.bet.br/*", "https://*.spribegaming.com/*"]
+  }],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Painel Aviator Betou",

@@ -133,9 +133,9 @@
   <div class="header-icon">✈</div>
   <div>
     <div class="header-title">Aviator Betou</div>
-    <div class="header-sub">Captura de rodadas • v4.0</div>
+    <div class="header-sub">Captura de rodadas • v4.1</div>
   </div>
-  <div class="header-ver">v4.0</div>
+  <div class="header-ver">v4.1</div>
 </div>
 
 <div class="body">
@@ -166,10 +166,6 @@
   <!-- Config -->
   <div class="section">
     <div class="campo">
-      <label>Token do Cliente</label>
-      <input type="text" id="token" placeholder="Seu token...">
-    </div>
-    <div class="campo">
       <label>Painel</label>
       <select id="painel">
         <option value="1">Aviator 1</option>
@@ -195,21 +191,18 @@
   const enviadas = document.getElementById('enviadas');
   const erros = document.getElementById('erros');
   const abasInfo = document.getElementById('abasInfo');
-  const inputToken = document.getElementById('token');
   const selectPainel = document.getElementById('painel');
   const btnSalvar = document.getElementById('btnSalvar');
   const salvoMsg = document.getElementById('salvoMsg');
 
   // Load config
-  chrome.storage.sync.get(['token','painel'], (c) => {
-    if (c.token) inputToken.value = c.token;
+  chrome.storage.sync.get(['painel'], (c) => {
     if (c.painel) selectPainel.value = String(c.painel);
   });
 
   // Save config
   btnSalvar.addEventListener('click', () => {
     chrome.storage.sync.set({
-      token: inputToken.value.trim() || 'default',
       painel: parseInt(selectPainel.value)
     }, () => {
       salvoMsg.classList.add('show');

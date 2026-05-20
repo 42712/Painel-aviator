@@ -66,6 +66,25 @@ def init_db():
         pass
 
     conn.commit()
+
+    # Cria clientes seed se não existirem
+    seed_clientes = [
+        ("marcosduarte356@gmail.com", "amordedeus123@", "Marcos Duarte", "Cliente principal", 1440),
+        ("joao@betou.com", "joao123", "João Silva", "Teste Aviator 1", 1440),
+        ("maria@betou.com", "maria123", "Maria Santos", "Teste Aviator 2", 1440),
+        ("admin@sniper.com", "sniper123", "Admin Sniper", "Parceiro", 4320),
+        ("suporte@betou.com", "suporte123", "Suporte Betou", "Suporte técnico", 10080),
+    ]
+    for login, senha, nome, obs, tempo in seed_clientes:
+        existe = cursor.execute("SELECT id FROM clientes WHERE login = ?", (login,)).fetchone()
+        if not existe:
+            import uuid
+            token = str(uuid.uuid4())
+            hash_s = generate_password_hash(senha)
+            cursor.execute("""INSERT INTO clientes (token, login, senha_hash, nome, observacao, tempo_acesso)
+                VALUES (?, ?, ?, ?, ?, ?)""", (token, login, hash_s, nome, obs, tempo))
+
+    conn.commit()
     conn.close()
 
 

@@ -1,4 +1,5 @@
-// ===== Content Script v4.0 - Betou Aviator Collector =====
+// ===== Content Script v4.1 - Betou Aviator Collector =====
+// v4.1: injeta MAIN world script para interceptar WS em iframes
 // Captura rodadas em tempo real via WebSocket interception + DOM fallback
 // Coleta: vela (multiplicador), ID rodada, horário (HH:MM:SS), soma
 // Envia para o servidor Render via webhook + SSE keepalive
@@ -9,6 +10,51 @@ const DOM_SCAN_INTERVAL = 1500;
 const FLUSH_INTERVAL = 3000;
 const MAX_BATCH = 50;
 const MAX_SEEN = 8000;
+
+// Injeta script no MAIN world (para interceptar WS em iframes)
+(function injectMainWorld() {
+  try {
+    const s = document.createElement('script');
+    s.src = chrome.runtime.getURL('main-world.js');
+    s.onload = () => s.remove();
+    (document.documentElement || document).appendChild(s);
+  } catch(e) { /* pode falhar em alguns iframes */ }
+})();
+
+// Listeners para eventos do MAIN world (iframe WS intercept)
+window.addEventListener('aviator-ws-data', (e) => {
+  if (e.detail) parseWS(e.detail);
+});
+
+let domFromMainTimer = null;
+window.addEventListener('aviator-dom-text', (e) => {
+  if (!e.detail) return;
+  if (domFromMainTimer) return;
+  domFromMainTimer = setTimeout(() => { domFromMainTimer = null; }, 500);
+  const txt = e.detail;
+  let m = txt.match(/(\d+(?:[.,]\d{3})*(?:,\d+)?)\s*x/i);
+  if (m) {
+    let numStr = m[1];
+    if (numStr.includes(',') && numStr.includes('.')) {
+      numStr = numStr.replace(/\./g, '').replace(',', '.');
+    } else if (numStr.includes(',')) {
+      const afterComma = numStr.split(',')[1];
+      if (afterComma && afterComma.length >= 3) {
+        numStr = numStr.replace(',', '');
+      } else {
+        numStr = numStr.replace(',', '.');
+      }
+    }
+    const val = parseFloat(numStr);
+    if (!isNaN(val) && val >= 1.0 && val < 100000) {
+      const key = `main_${val.toFixed(2)}_${Math.floor(Date.now()/5000)}`;
+      if (!ENV.rodadasVistas.has(key)) {
+        ENV.rodadasVistas.add(key);
+        processarRodada(`main_${Date.now()}`, val);
+      }
+    }
+  }
+});
 
 let ENV = {
   rodadasVistas: new Set(),
@@ -21,19 +67,16 @@ let ENV = {
   flushTimer: null,
   enviando: false,
   wsInterceptado: false,
-  token: 'default',
   painel: 1,
   domParserAtivo: false
 };
 
 // Carregar config
-try { chrome.storage?.sync?.get(['token','painel'], c => {
-  if (c.token) ENV.token = c.token;
+try { chrome.storage?.sync?.get(['painel'], c => {
   if (c.painel) ENV.painel = parseInt(c.painel);
 }); } catch(e) {}
 
 try { chrome.storage?.onChanged?.addListener((ch) => {
-  if (ch.token) ENV.token = ch.token.newValue || 'default';
   if (ch.painel) ENV.painel = parseInt(ch.painel.newValue) || 1;
 }); } catch(e) {}
 
@@ -75,7 +118,6 @@ async function flushBatch() {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        token: ENV.token,
         painel: detectarPainel(),
         rodadas: batch
       })
@@ -250,10 +292,25 @@ function escanearDOM() {
     const txt = el.textContent.trim();
     if (!txt || textosVistos.has(txt)) continue;
 
-    // "5.65x" ou "5,65x"
-    let m = txt.match(/(\d+[.,]\d+)\s*x/i);
+    // "5.65x", "5,65x" ou "105.785,14x" (formato brasileiro)
+    let m = txt.match(/(\d+(?:[.,]\d{3})*(?:,\d+)?)\s*x/i);
     if (m) {
-      const val = parseFloat(m[1].replace(',','.'));
+      // Formato brasileiro: "105.785,14" -> remove pontos, troca vírgula por ponto
+      let numStr = m[1];
+      if (numStr.includes(',') && numStr.includes('.')) {
+        // Brasileiro: 1.234,56 -> remove pontos, troca , por .
+        numStr = numStr.replace(/\./g, '').replace(',', '.');
+      } else if (numStr.includes(',')) {
+        // Pode ser "5,65" (virgula decimal) ou "1,234" (milhar)
+        // Se tiver 3+ dígitos após a vírgula, é milhar
+        const afterComma = numStr.split(',')[1];
+        if (afterComma && afterComma.length >= 3) {
+          numStr = numStr.replace(',', ''); // milhar
+        } else {
+          numStr = numStr.replace(',', '.'); // decimal
+        }
+      }
+      const val = parseFloat(numStr);
       if (val >= 1.0 && val < 10000) {
         const key = `dom_${val.toFixed(2)}_${Math.floor(Date.now()/5000)}`;
         if (!ENV.rodadasVistas.has(key)) {
@@ -306,7 +363,7 @@ setInterval(() => {
   fetch(`${SERVER_BASE}/api/ping`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ token: ENV.token })
+    body: JSON.stringify({})
   }).catch(() => {});
 }, FLUSH_INTERVAL);
 

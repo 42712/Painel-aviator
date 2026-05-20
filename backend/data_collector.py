@@ -22,7 +22,7 @@ class DataCollector:
         self._ultimo_valor = 1.00
 
     def iniciar(self):
-        """Inicia a coleta de dados - modo híbrido"""
+        """Inicia a coleta de dados"""
         self.running = True
 
         if SIMULAR_DADOS:
@@ -32,8 +32,6 @@ class DataCollector:
         else:
             # Modo real - apenas dados da extensão via webhook
             print("[DataCollector] Modo real ativo - aguardando dados da extensão")
-            self._ws_thread = threading.Thread(target=self._coletar_sorte_bet, daemon=True)
-            self._ws_thread.start()
 
     def parar(self):
         self.running = False

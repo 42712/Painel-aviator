@@ -17,7 +17,7 @@ SIMULAR_DADOS = os.getenv("SIMULAR_DADOS", "false").lower() == "true"
 INTERVALO_RODADA = int(os.getenv("INTERVALO_RODADA", "8"))
 
 # Histórico máximo de rodadas
-MAX_HISTORICO = 15000
+MAX_HISTORICO = int(os.getenv("MAX_HISTORICO", "85"))
 
 # Config das cores
 CORES = {
