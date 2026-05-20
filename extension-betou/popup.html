@@ -246,7 +246,17 @@
     if (msg.tipo === 'statusAtualizado') atualizar(msg);
   });
 
-  chrome.runtime.sendMessage({ tipo: 'getStatus' });
+  // Pega status inicial com callback (funciona mesmo se worker hibernou)
+  chrome.runtime.sendMessage({ tipo: 'getStatus' }, (s) => {
+    if (s && !chrome.runtime.lastError) atualizar(s);
+  });
+
+  // Poll de segurança caso worker hiberne entre mensagens
+  setInterval(() => {
+    chrome.runtime.sendMessage({ tipo: 'getStatus' }, (s) => {
+      if (s && !chrome.runtime.lastError) atualizar(s);
+    });
+  }, 5000);
 })();
 </script>
 </body>

@@ -11,7 +11,7 @@ PORT = int(os.getenv("PORT", 5000))
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 # Modo simulação (true = dados simulados, false = real da sorte da bet)
-SIMULAR_DADOS = os.getenv("SIMULAR_DADOS", "true").lower() == "true"
+SIMULAR_DADOS = os.getenv("SIMULAR_DADOS", "false").lower() == "true"
 
 # Intervalo entre rodadas (segundos) - para simulação
 INTERVALO_RODADA = int(os.getenv("INTERVALO_RODADA", "8"))
