@@ -515,8 +515,7 @@ def seed_data():
         return
 
     casas = [
-        "SorteNaBet Grafico 01",
-        "SorteNaBet Grafico 02"
+        "SorteNaBet Aviator VIP 3"
     ]
 
     now = datetime.datetime.now()
