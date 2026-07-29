@@ -1,4 +1,4 @@
-// MARKIN CAPTURADOR - Qualquer casa Aviator
+// MARKIN CAPTURADOR - Intercepta WebSocket do jogo + relay + DOM
 const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
 
 function detectarCasa() {
@@ -14,7 +14,7 @@ function detectarCasa() {
         'vera.bet.br': 'Vera',
         'iaeagle.pro': 'PixReals',
     };
-    return mapa[host] || ('Casa: '+host.split('.')[0]);
+    return mapa[host] || (host.split('.')[0]);
 }
 
 function detectarAviator() {
@@ -28,7 +28,6 @@ function calcularSoma(mult) {
     return soma;
 }
 
-// Dedup global: uma vela por (painel + rodada)
 const enviadas = new Set();
 
 function enviarVela(mult, rodada, timestamp, origem) {
@@ -40,124 +39,78 @@ function enviarVela(mult, rodada, timestamp, origem) {
     enviadas.add(chave);
 
     const horario = timestamp || new Date().toLocaleTimeString('pt-BR');
+    const casa = detectarCasa();
 
     fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             painel, multiplicador: multNum,
-            rodada: rodada.toString(), timestamp: horario,
-            soma: calcularSoma(multNum), fonte: detectarCasa()
+            rodada: String(rodada), timestamp: horario,
+            soma: calcularSoma(multNum), fonte: origem ? (origem + '|' + casa) : casa
         })
     }).then(r => r.json()).then(d => {
-        if (d.ok) console.log(`✅ [AVIATOR ${painel}] ${multNum}x rodada ${rodada}`);
+        if (d.ok) console.log('✅ [' + casa + ' AVIATOR ' + painel + '] ' + multNum + 'x rodada ' + rodada);
     }).catch(() => {});
 }
 
-// Cache de rodada: atualizado a cada 300ms para capturar antes do WS chegar
-let rodadaCache = null;
-
-function extrairRodada() {
-    // 1. Span do fairness modal
-    const modalSpan = document.querySelector('app-fairness span.text-uppercase');
-    if (modalSpan) {
-        const match = modalSpan.textContent.match(/Rodada\s+(\d+)/);
-        if (match) return match[1];
-    }
-    // 2. TreeWalker no documento principal
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-    let node;
-    while ((node = walker.nextNode())) {
-        const match = node.textContent.match(/Rodada\s+(\d+)/);
-        if (match) return match[1];
-    }
-    // 3. Tenta dentro de iframes (o jogo pode estar num iframe)
-    for (const iframe of document.querySelectorAll('iframe')) {
-        try {
-            if (!iframe.contentDocument) continue;
-            const w = iframe.contentDocument.createTreeWalker(iframe.contentDocument.body, NodeFilter.SHOW_TEXT, null, false);
-            let n;
-            while ((n = w.nextNode())) {
-                const m = n.textContent.match(/Rodada\s+(\d+)/);
-                if (m) return m[1];
-            }
-        } catch(e) {}
-    }
-    // 4. Seletores genericos
-    const roundEl = document.querySelector('[class*="round" i], [data-round], game-round-id');
-    if (roundEl) return roundEl.getAttribute('data-round') || roundEl.textContent.trim();
-    return null;
-}
-
-// Polling constante pra manter rodadaCache atualizado
-function atualizarCacheRodada() {
-    const r = extrairRodada();
-    if (r) rodadaCache = r;
-}
-setInterval(atualizarCacheRodada, 300);
-atualizarCacheRodada();
-
-function formatarTimestamp(isoStr) {
-    if (!isoStr) return null;
-    try {
-        const d = new Date(isoStr);
-        return d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
-    } catch (e) {
-        return null;
-    }
-}
-
-// ===== WEBSOCKET (fonte principal) =====
-let ultimoEnvioWS = 0;
-
-function conectarWS() {
-    console.log("📡 Usando interceptacao do jogo (main-world)...");
-}
-conectarWS();
-
-// ===== ESCUTA DADOS DO JOGO VIA MAIN-WORLD =====
+// ===== FONTE 1: INTERCEPTACAO DO JOGO (main-world) - RODADA REAL =====
 window.addEventListener('aviator-ws-data', (ev) => {
     try {
         const raw = typeof ev.detail === 'string' ? ev.detail : JSON.stringify(ev.detail);
-        // Procura crash_point no JSON da mensagem
         let data = null;
-        try { data = JSON.parse(raw); } catch(e) {}
+        try { data = JSON.parse(raw); } catch(e) { return; }
+        if (!data) return;
         
-        if (data) {
-            // Formato Spribe: array de eventos
-            const items = Array.isArray(data) ? data : [data];
-            for (const item of items) {
-                if (item.type === 'crash' && item.crash_point && item.round_id) {
-                    const mult = parseFloat(item.crash_point);
-                    if (mult >= 1) {
-                        const casa = detectarCasa();
-                        const ts = new Date().toLocaleTimeString('pt-BR');
-                        console.log(`🎯 CRASH: ${mult}x | round=${item.round_id} | casa=${casa}`);
-                        enviarVela(mult, item.round_id, ts, casa);
-                    }
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+            if (item.type === 'crash' && item.crash_point && item.round_id) {
+                const mult = parseFloat(item.crash_point);
+                if (mult >= 1) {
+                    const ts = new Date().toLocaleTimeString('pt-BR');
+                    enviarVela(mult, item.round_id, ts, "spribe");
                 }
             }
         }
     } catch(e) {}
 });
 
-// ===== FALLBACK: DOM SCANNER =====
-let ultPayout = 0;
-let maxPayoutRodada = 0;
+// ===== FONTE 2: RELAY EXTERNO (fallback) =====
+function conectarWS() {
+    try {
+        const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
+        ws.onopen = () => console.log("📡 Relay conectado");
+        ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type !== "signal") return;
+                const mult = parseFloat(msg.data?.valor);
+                if (isNaN(mult) || mult < 1) return;
+                const rodada = `r-${Date.now()}`;
+                const ts = msg.data?.createdAt
+                    ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+                    : new Date().toLocaleTimeString('pt-BR');
+                enviarVela(mult, rodada, ts, "relay");
+            } catch(ex) {}
+        };
+        ws.onclose = () => setTimeout(conectarWS, 5000);
+        ws.onerror = () => {};
+    } catch(e) { setTimeout(conectarWS, 5000); }
+}
+conectarWS();
 
+// ===== FONTE 3: DOM SCANNER (ultimo fallback) =====
+let ultPayout = 0, maxPayoutRodada = 0;
 setInterval(() => {
     const el = document.querySelector('.payout, .bubble-multiplier, [class*="multiplier"], [class*="payout"]');
     if (!el) return;
     const m = el.textContent.match(/(\d+\.?\d*)x/);
     if (!m) return;
-
     const mult = parseFloat(m[1]);
     if (isNaN(mult)) return;
-
     if (ultPayout >= 1.01 && mult <= 1.01 && maxPayoutRodada >= 1.01) {
-        const rodada = rodadaCache || extrairRodada() || `dom-${Date.now()}`;
-        console.log(`🎯 DOM: ${maxPayoutRodada}x rodada=${rodada}`);
-        enviarVela(maxPayoutRodada, rodada, null, detectarCasa());
+        enviarVela(maxPayoutRodada, `dom-${Date.now()}`, null, "dom");
+        maxPayoutRodada = 0;
     }
     if (mult > maxPayoutRodada) maxPayoutRodada = mult;
     ultPayout = mult;

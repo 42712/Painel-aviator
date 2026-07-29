@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Capturador Sortenabet Aviator",
+  "version": "1.4",
+  "description": "Captura velas reais do Aviator 1 e 2 via WebSocket (SortenaBet) — servidor Render",
+  "permissions": ["activeTab", "alarms"],
+  "host_permissions": [
+    "https://betou.bet.br/*",
+    "https://sortenabet.bet.br/*",
+    "https://*.onrender.com/*",
+    "wss://apiglobal.appbackend.tech/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://betou.bet.br/games/spribe/aviator",
+        "https://betou.bet.br/games/spribe/aviator2",
+        "https://sortenabet.bet.br/games/spribe/aviator",
+        "https://sortenabet.bet.br/games/spribe/aviator2"
+      ],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://betou.bet.br/games/spribe/aviator",
+        "https://betou.bet.br/games/spribe/aviator2",
+        "https://sortenabet.bet.br/games/spribe/aviator",
+        "https://sortenabet.bet.br/games/spribe/aviator2"
+      ],
+      "js": ["main-world.js"],
+      "world": "MAIN",
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ]
+}
