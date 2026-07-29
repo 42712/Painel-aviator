@@ -558,6 +558,32 @@ def seed_data():
 
     db.commit()
 
+# --- Webhook da extensao (recebe velas em tempo real) ---
+@app.route('/api/nova-vela', methods=['POST'])
+def api_nova_vela():
+    try:
+        dados = request.get_json()
+        if not dados:
+            return jsonify({"erro": "Dados invalidos"}), 400
+        mult = dados.get('multiplicador')
+        if not mult or float(mult) < 1.0:
+            return jsonify({"erro": "Multiplicador invalido"}), 400
+        casa = dados.get('fonte', 'Extensao')
+        rodada_id = str(dados.get('rodada', ''))
+        ts = dados.get('timestamp', '')
+        db = get_db()
+        existe = db.execute("SELECT id FROM rounds WHERE casa=? AND round_id=?",
+            (casa, rodada_id)).fetchone()
+        if not existe:
+            db.execute(
+                "INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) VALUES (?,?,?,?,?)",
+                (casa, rodada_id, round(float(mult), 2), ts, ts)
+            )
+            db.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
 # --- Run ---
 
 # Inicialização que roda em qualquer ambiente (gunicorn ou python app.py)
