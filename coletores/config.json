@@ -1,13 +1,7 @@
 {
   "casas": [
     {
-      "nome": "Aviator Painel 1",
-      "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator",
-      "provider": "appbackend",
-      "ativo": true
-    },
-    {
-      "nome": "Aviator Painel 2",
+      "nome": "Aviator Painel 01",
       "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator",
       "provider": "appbackend",
       "ativo": true
@@ -15,7 +9,7 @@
   ],
   "config": {
     "reconnect_delay": 5,
-    "ping_interval": 45,
+    "ping_interval": 20,
     "db_path": "../painel_aviator.db",
     "log_file": "../coletores/coletor.log"
   }

@@ -238,7 +238,7 @@ class CasaColetor:
                     on_close=self._on_close
                 )
                 self.ws.run_forever(
-                    ping_interval=45,
+                    ping_interval=20,
                     ping_timeout=15,
                     reconnect=0
                 )
