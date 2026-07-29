@@ -333,19 +333,27 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   #s10SelBadge{font-size:7px;padding:1px 5px;height:18px}
 }
 /* ══ MINUTAGEM GRID ══ */
-.min-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;padding:14px;max-width:600px;margin:0 auto}
-.min-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transition:all .15s;border:1px solid rgba(255,255,255,.06);background:#15151f;position:relative;overflow:hidden}
+.min-wrap{display:flex;flex-direction:column;gap:8px;padding:12px}
+.min-filtros{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 4px}
+.min-filtro{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:5px 12px;font-size:10px;font-weight:600;font-family:var(--font);color:var(--txt2);cursor:pointer;transition:all .2s;white-space:nowrap}
+.min-filtro:hover{border-color:rgba(168,85,247,.4);color:#fff}
+.min-filtro.on{background:rgba(168,85,247,.2);border-color:var(--up);color:#c4b5fd}
+.min-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;padding:0 4px;max-width:620px}
+.min-cell{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transition:all .15s;border:1px solid rgba(255,255,255,.06);background:#15151f;position:relative;overflow:hidden}
 .min-cell:hover{transform:scale(1.15);z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
-.min-cell .mn{font-size:9px;font-weight:700;color:#555;line-height:1}
-.min-cell .mq{font-size:16px;font-weight:800;line-height:1.1}
-.min-cell .mp{font-size:8px;color:#555;line-height:1}
-.min-cell.mz .mq{color:#444}
-.min-cell.mz .mp{display:none}
-.min-cell.ma{background:rgba(6,182,212,.18);border-color:rgba(6,182,212,.35)}.min-cell.ma .mq{color:#06b6d4}
-.min-cell.mr{background:rgba(168,85,247,.18);border-color:rgba(168,85,247,.35)}.min-cell.mr .mq{color:#a855f7}
-.min-cell.ms{background:rgba(244,114,182,.18);border-color:rgba(244,114,182,.35)}.min-cell.ms .mq{color:#f472b6}
-.min-info{text-align:center;padding:8px 0 4px;font-size:10px;color:var(--txt2)}
-.min-info span{color:#fff;font-weight:700}
+.min-cell .mn{font-size:11px;font-weight:700;color:#666;line-height:1;margin-bottom:1px}
+.min-cell .mq{font-size:18px;font-weight:900;line-height:1}
+.min-cell .ml{font-size:8px;color:#555;line-height:1;margin-top:1px}
+/* cores de pagamento */
+.min-cell.mz .mq{color:#444}.min-cell.mz .ml{display:none}
+.min-cell.mg{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3)}.min-cell.mg .mq{color:#22c55e}.min-cell.mg .mn{color:#4ade80}
+.min-cell.mm{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.25)}.min-cell.mm .mq{color:#facc15}.min-cell.mm .mn{color:#fde047}
+.min-cell.mf{background:rgba(244,63,94,.12);border-color:rgba(244,63,94,.22)}.min-cell.mf .mq{color:#f43f5e}.min-cell.mf .mn{color:#fb7185}
+.min-legenda{display:flex;gap:16px;justify-content:center;padding:4px 0;font-size:9px;color:var(--txt2);flex-wrap:wrap}
+.min-legenda span{display:flex;align-items:center;gap:4px}
+.min-legenda .dot{width:8px;height:8px;border-radius:2px}
+.min-legenda .dg{background:#22c55e}.min-legenda .dm{background:#facc15}.min-legenda .df{background:#f43f5e}
+.min-resumo{text-align:center;font-size:10px;color:var(--txt2);padding:2px 0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -5402,49 +5410,79 @@ function renderContaTabInto(ov) {
 
 function renderMinutagemTabInto(ov) {
   const pts = window.pts || [];
+  const now = new Date();
+  const curH = now.getHours();
+  if (typeof _minFiltroHora === 'undefined') window._minFiltroHora = -1;
+
+  let h = '<div class="min-wrap">';
+
+  // Filtro de hora
+  h += '<div class="min-filtros">';
+  h += '<button class="min-filtro' + (_minFiltroHora === -1 ? ' on' : '') + '" onclick="_minFiltroHora=-1;renderMinutagemTabInto(document.getElementById(\'tabOverlay\'))">📅 TODAS AS HORAS</button>';
+  for (let hr = 0; hr < 24; hr++) {
+    h += '<button class="min-filtro' + (_minFiltroHora === hr ? ' on' : '') + '" onclick="_minFiltroHora=' + hr + ';renderMinutagemTabInto(document.getElementById(\'tabOverlay\'))">' + String(hr).padStart(2,'0') + 'h</button>';
+  }
+  h += '</div>';
+
+  // Se tem filtro de hora ativo, destaca hora atual
+  if (_minFiltroHora === -1) {
+    // Auto-seleciona a hora atual se nenhum filtro ativo
+  }
+
   const bins = {};
-  for (let m = 0; m < 60; m++) bins[m] = { total: 0, azul: 0, roxa: 0, rosa: 0, max: 0, vals: [] };
+  for (let m = 0; m < 60; m++) bins[m] = { total: 0, rosas: 0, soma: 0, max: 0 };
 
   if (pts.length > 0) {
     pts.forEach(p => {
       const t = p.time instanceof Date ? p.time : new Date(p.time || p.t || Date.now());
+      const h = t.getHours();
+      if (_minFiltroHora >= 0 && h !== _minFiltroHora) return;
       const min = t.getMinutes();
       if (min >= 0 && min < 60) {
         const v = parseFloat(p.val || p.v || 0);
         if (v >= 1) {
           bins[min].total++;
-          bins[min].vals.push(v);
+          bins[min].soma += v;
           bins[min].max = Math.max(bins[min].max, v);
-          if (v < 2) bins[min].azul++;
-          else if (v < 10) bins[min].roxa++;
-          else bins[min].rosa++;
+          if (v >= 10) bins[min].rosas++;
         }
       }
     });
   }
 
-  const maxTotal = Math.max(1, ...Object.values(bins).map(b => b.total));
+  // Legenda
+  h += '<div class="min-legenda">';
+  h += '<span><div class="dot dg"></div> PAGANDO (+rosas)</span>';
+  h += '<span><div class="dot dm"></div> MEDIO</span>';
+  h += '<span><div class="dot df"></div> FRIO</span>';
+  h += '</div>';
 
-  let h = '<div style="padding:12px">';
-  h += '<div class="min-info">Filtragem do Histórico - <span>Minutagem</span> · ' + pts.length + ' velas analisadas</div>';
+  const maxRosas = Math.max(1, ...Object.values(bins).map(b => b.rosas));
+  let totalVelas = 0;
+  Object.values(bins).forEach(b => totalVelas += b.total);
+
   h += '<div class="min-grid">';
   for (let m = 0; m < 60; m++) {
     const b = bins[m];
     const mm = String(m).padStart(2, '0');
     let cls = 'min-cell';
-    let qty = '--', pct = '';
+    let qty = '--';
+
     if (b.total > 0) {
-      qty = b.total;
-      if (b.rosa > 0 && b.rosa >= b.roxa && b.rosa >= b.azul) cls += ' ms';
-      else if (b.roxa > 0 && b.roxa >= b.azul) cls += ' mr';
-      else cls += ' ma';
-      if (b.rosa > 0) pct = '<div class="mp">' + Math.round(b.rosa / b.total * 100) + '%</div>';
+      qty = b.rosas; // mostrar rosas (pagamentos grandes)
+      const ratio = b.rosas / maxRosas;
+      if (ratio >= 0.5) cls += ' mg';      // pagando
+      else if (ratio >= 0.15) cls += ' mm'; // medio
+      else cls += ' mf';                     // frio
     } else {
       cls += ' mz';
     }
-    h += '<div class="' + cls + '" title="Min ' + mm + ' | ' + b.total + ' velas | Azul:' + b.azul + ' Roxa:' + b.roxa + ' Rosa:' + b.rosa + '"><div class="mn">' + mm + '</div><div class="mq">' + qty + '</div>' + pct + '</div>';
+    h += '<div class="' + cls + '" title="Min ' + mm + ' | ' + b.total + ' velas | ' + b.rosas + ' rosas | Maior: ' + b.max.toFixed(2) + 'x"><div class="mn">' + mm + '</div><div class="mq">' + qty + '</div><div class="ml">' + (b.total > 0 ? b.max.toFixed(0) + 'x' : '') + '</div></div>';
   }
-  h += '</div></div>';
+  h += '</div>';
+
+  h += '<div class="min-resumo">' + totalVelas + ' velas analisadas' + (_minFiltroHora >= 0 ? ' na hora ' + String(_minFiltroHora).padStart(2,'0') + 'h' : ' (todas as horas)') + '</div>';
+  h += '</div>';
   ov.innerHTML = h;
 }
 
