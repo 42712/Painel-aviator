@@ -113,28 +113,34 @@ let ultimoEnvioWS = 0;
 function conectarWS() {
     try {
         const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
-        ws.onopen = () => console.log("✅ WS conectado");
+        ws.onopen = () => console.log("✅ WS RELAY conectado - aguardando sinais...");
         ws.onmessage = (e) => {
             try {
                 const msg = JSON.parse(e.data);
-                if (msg.casa !== 'sortenabet') return;
+                if (msg.type === "connected") { console.log("📡 RELAY: " + msg.message); return; }
+                if (msg.type !== "signal") return;
 
                 const mult = parseFloat(msg.data?.valor);
-                if (isNaN(mult) || mult <= 0) return;
+                if (isNaN(mult) || mult <= 0 || mult < 1) return;
 
-                const rodada = rodadaCache || extrairRodada() || `ws-${Date.now()}`;
-                const timestamp = formatarTimestamp(msg.data.createdAt);
+                const casaFonte = detectarCasa();
+                const rodada = rodadaCache || extrairRodada() || `r-${Date.now()}`;
+                const timestamp = msg.data?.createdAt 
+                    ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+                    : new Date().toLocaleTimeString('pt-BR');
 
-                console.log(`🎯 SINAL WS: ${mult}x rodada ${rodada}`);
-                enviarVela(mult, rodada, timestamp, "ws-sortenabet");
+                console.log(`🎯 SINAL: ${mult}x | casa=${casaFonte} | rodada=${rodada}`);
+                enviarVela(mult, rodada, timestamp, casaFonte);
                 ultimoEnvioWS = Date.now();
-            } catch (ex) {}
+            } catch (ex) { console.error("WS parse error:", ex); }
         };
         ws.onclose = () => {
+            console.log("⚠ WS RELAY fechado, reconectando em 5s...");
             setTimeout(conectarWS, 5000);
         };
-        ws.onerror = () => ws.close();
+        ws.onerror = (err) => console.log("⚠ WS RELAY erro, tentando reconectar...");
     } catch (e) {
+        console.log("⚠ WS RELAY falhou, retry em 5s...");
         setTimeout(conectarWS, 5000);
     }
 }
