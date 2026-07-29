@@ -332,6 +332,20 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   #btnEspelho{font-size:7px;padding:1px 5px;height:18px}
   #s10SelBadge{font-size:7px;padding:1px 5px;height:18px}
 }
+/* ══ MINUTAGEM GRID ══ */
+.min-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;padding:14px;max-width:600px;margin:0 auto}
+.min-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transition:all .15s;border:1px solid rgba(255,255,255,.06);background:#15151f;position:relative;overflow:hidden}
+.min-cell:hover{transform:scale(1.15);z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.min-cell .mn{font-size:9px;font-weight:700;color:#555;line-height:1}
+.min-cell .mq{font-size:16px;font-weight:800;line-height:1.1}
+.min-cell .mp{font-size:8px;color:#555;line-height:1}
+.min-cell.mz .mq{color:#444}
+.min-cell.mz .mp{display:none}
+.min-cell.ma{background:rgba(6,182,212,.18);border-color:rgba(6,182,212,.35)}.min-cell.ma .mq{color:#06b6d4}
+.min-cell.mr{background:rgba(168,85,247,.18);border-color:rgba(168,85,247,.35)}.min-cell.mr .mq{color:#a855f7}
+.min-cell.ms{background:rgba(244,114,182,.18);border-color:rgba(244,114,182,.35)}.min-cell.ms .mq{color:#f472b6}
+.min-info{text-align:center;padding:8px 0 4px;font-size:10px;color:var(--txt2)}
+.min-info span{color:#fff;font-weight:700}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -373,6 +387,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <!-- TABS + CONTROLES -->
 <div style="height:40px;background:linear-gradient(180deg,rgba(10,18,34,.98),rgba(6,11,20,.98));border-bottom:1px solid rgba(168,85,247,.08);display:flex;align-items:center;gap:4px;padding:0 10px;flex-shrink:0;user-select:none;overflow-x:auto;box-shadow:0 2px 12px rgba(0,0,0,.2)">
   <button class="btn on tab-main-btn" style="border-bottom:0;border-radius:4px 4px 0 0;height:100%;font-size:10px;font-weight:700" onclick="switchTab('principal')">📊 PRINCIPAL</button>
+  <button class="btn tab-main-btn" style="border-bottom:0;border-radius:4px 4px 0 0;height:100%;font-size:10px;font-weight:700" onclick="switchTab('minutagem')">⏱️ MINUTAGEM</button>
   <button class="btn tab-main-btn" style="border-bottom:0;border-radius:4px 4px 0 0;height:100%;font-size:10px;font-weight:700" onclick="switchTab('historico')">📋 HISTÓRICO</button>
   <button class="btn tab-main-btn" style="border-bottom:0;border-radius:4px 4px 0 0;height:100%;font-size:10px;font-weight:700" onclick="switchTab('velas')">🔥 VELAS ALTAS</button>
   <button class="btn tab-main-btn" style="border-bottom:0;border-radius:4px 4px 0 0;height:100%;font-size:10px;font-weight:700" onclick="switchTab('resumo')">📈 RESUMO</button>
@@ -5224,6 +5239,7 @@ function switchTab(tab) {
     if(xbar) xbar.style.display = 'none';
     if(scrollH) scrollH.style.display = 'none';
     if (tab==='historico') renderHistoricoTabInto(ov);
+    else if (tab==='minutagem') renderMinutagemTabInto(ov);
     else if (tab==='velas') renderVelasAltasTabInto(ov);
     else if (tab==='resumo') renderResumoTabInto(ov);
     else if (tab==='conta') renderContaTabInto(ov);
@@ -5380,6 +5396,54 @@ function renderContaTabInto(ov) {
   h += '<a href="https://pixreals.com/" target="_blank" style="background:#0891b2;color:#fff;padding:5px 12px;border-radius:4px;font-size:9px;text-decoration:none;font-weight:700">PixReals</a>';
   h += '</div></div>';
   h += '<p style="color:var(--txt3);font-size:8px;margin-top:16px;line-height:1.5">PAINEL AVIATOR DO MARKIN<br>Análise estatística em tempo real<br>https://aviatorpaineldojhow.com.br</p>';
+  h += '</div></div>';
+  ov.innerHTML = h;
+}
+
+function renderMinutagemTabInto(ov) {
+  const pts = window.pts || [];
+  const bins = {};
+  for (let m = 0; m < 60; m++) bins[m] = { total: 0, azul: 0, roxa: 0, rosa: 0, max: 0, vals: [] };
+
+  if (pts.length > 0) {
+    pts.forEach(p => {
+      const t = p.time instanceof Date ? p.time : new Date(p.time || p.t || Date.now());
+      const min = t.getMinutes();
+      if (min >= 0 && min < 60) {
+        const v = parseFloat(p.val || p.v || 0);
+        if (v >= 1) {
+          bins[min].total++;
+          bins[min].vals.push(v);
+          bins[min].max = Math.max(bins[min].max, v);
+          if (v < 2) bins[min].azul++;
+          else if (v < 10) bins[min].roxa++;
+          else bins[min].rosa++;
+        }
+      }
+    });
+  }
+
+  const maxTotal = Math.max(1, ...Object.values(bins).map(b => b.total));
+
+  let h = '<div style="padding:12px">';
+  h += '<div class="min-info">Filtragem do Histórico - <span>Minutagem</span> · ' + pts.length + ' velas analisadas</div>';
+  h += '<div class="min-grid">';
+  for (let m = 0; m < 60; m++) {
+    const b = bins[m];
+    const mm = String(m).padStart(2, '0');
+    let cls = 'min-cell';
+    let qty = '--', pct = '';
+    if (b.total > 0) {
+      qty = b.total;
+      if (b.rosa > 0 && b.rosa >= b.roxa && b.rosa >= b.azul) cls += ' ms';
+      else if (b.roxa > 0 && b.roxa >= b.azul) cls += ' mr';
+      else cls += ' ma';
+      if (b.rosa > 0) pct = '<div class="mp">' + Math.round(b.rosa / b.total * 100) + '%</div>';
+    } else {
+      cls += ' mz';
+    }
+    h += '<div class="' + cls + '" title="Min ' + mm + ' | ' + b.total + ' velas | Azul:' + b.azul + ' Roxa:' + b.roxa + ' Rosa:' + b.rosa + '"><div class="mn">' + mm + '</div><div class="mq">' + qty + '</div>' + pct + '</div>';
+  }
   h += '</div></div>';
   ov.innerHTML = h;
 }
