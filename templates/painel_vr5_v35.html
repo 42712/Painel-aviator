@@ -400,6 +400,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div id="contadorRosaVal" style="font-size:20px;color:#fff;font-weight:900">1</div>
     </div>
      <div id="clockBox" style="background:var(--bg3);border:1px solid var(--brd2);border-radius:3px;padding:4px 10px;font-size:18px;font-weight:900;color:#fff;white-space:nowrap">00:00:00</div>
+    <button class="btn" id="btnRodada" onclick="toggleModoRodada()">⑬ RODADA</button>
+    <button class="btn on" id="btnTip" onclick="toggleTooltip()" title="Tooltip">💬 TIP</button>
   </div>
 </div>
 
@@ -423,12 +425,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <button class="btn b" onclick="openCfgMM()">⚙</button>
   <button class="btn r" onclick="clearDrawings()">✕</button>
   <div style="width:1px;height:22px;background:rgba(168,85,247,.12);flex-shrink:0;margin:0 2px"></div>
-  <button class="btn" id="btnRodada" onclick="toggleModoRodada()">⑬ RODADA</button>
   <button class="btn" onclick="setTool('hline')" title="Linha Horizontal">— H</button>
   <button class="btn" onclick="setTool('vline')" title="Linha Vertical">| V</button>
   <button class="btn" onclick="setTool('tline')" title="Linha Tendência">↗ T</button>
   <button class="btn" onclick="setTool('trendinf')" title="Tendência Infinita">↗∞ TI</button>
-  <button class="btn on" id="btnTip" onclick="toggleTooltip()" title="Tooltip">💬 TIP</button>
 </div>
 
 <div class="main">
