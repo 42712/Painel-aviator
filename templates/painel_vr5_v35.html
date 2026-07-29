@@ -344,15 +344,27 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .min-cell .mn{font-size:11px;font-weight:700;color:#666;line-height:1;margin-bottom:1px}
 .min-cell .mq{font-size:18px;font-weight:900;line-height:1}
 .min-cell .ml{font-size:8px;color:#555;line-height:1;margin-top:1px}
-/* cores de pagamento */
+/* cores de pagamento - padrao Aviator */
 .min-cell.mz .mq{color:#444}.min-cell.mz .ml{display:none}
-.min-cell.mg{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3)}.min-cell.mg .mq{color:#22c55e}.min-cell.mg .mn{color:#4ade80}
-.min-cell.mm{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.25)}.min-cell.mm .mq{color:#facc15}.min-cell.mm .mn{color:#fde047}
-.min-cell.mf{background:rgba(244,63,94,.12);border-color:rgba(244,63,94,.22)}.min-cell.mf .mq{color:#f43f5e}.min-cell.mf .mn{color:#fb7185}
+.min-cell.mg{background:rgba(244,114,182,.2);border-color:rgba(244,114,182,.45)}.min-cell.mg .mq{color:#f472b6}.min-cell.mg .mn{color:#f9a8d4}
+.min-cell.mm{background:rgba(168,85,247,.2);border-color:rgba(168,85,247,.45)}.min-cell.mm .mq{color:#a855f7}.min-cell.mm .mn{color:#c084fc}
+.min-cell.mf{background:rgba(6,182,212,.2);border-color:rgba(6,182,212,.4)}.min-cell.mf .mq{color:#06b6d4}.min-cell.mf .mn{color:#67e8f9}
+.min-legenda .dg{background:#f472b6}.min-legenda .dm{background:#a855f7}.min-legenda .df{background:#06b6d4}
 .min-legenda{display:flex;gap:16px;justify-content:center;padding:4px 0;font-size:9px;color:var(--txt2);flex-wrap:wrap}
 .min-legenda span{display:flex;align-items:center;gap:4px}
 .min-legenda .dot{width:8px;height:8px;border-radius:2px}
-.min-legenda .dg{background:#22c55e}.min-legenda .dm{background:#facc15}.min-legenda .df{background:#f43f5e}
+/* proximos minutos */
+.min-prox{border-top:1px solid rgba(168,85,247,.12);padding:12px 4px 0;margin-top:4px}
+.min-prox-title{font-size:11px;font-weight:700;color:#c4b5fd;margin-bottom:8px;text-align:center}
+.min-prox-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;max-width:340px;margin:0 auto}
+.min-prox-cell{border-radius:10px;padding:8px 4px;text-align:center;border:1px solid rgba(255,255,255,.08);background:#15151f;transition:all .15s}
+.min-prox-cell:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.min-prox-cell .pxm{font-size:11px;font-weight:800;color:#fff;line-height:1}
+.min-prox-cell .pxs{font-size:8px;color:var(--txt2);margin-top:2px;line-height:1}
+.min-prox-cell .pxr{font-size:14px;font-weight:900;margin-top:3px;line-height:1}
+.min-prox-cell.pg{border-color:rgba(244,114,182,.4);background:rgba(244,114,182,.1)}.min-prox-cell.pg .pxr{color:#f472b6}
+.min-prox-cell.pm{border-color:rgba(168,85,247,.4);background:rgba(168,85,247,.1)}.min-prox-cell.pm .pxr{color:#a855f7}
+.min-prox-cell.pf{border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.1)}.min-prox-cell.pf .pxr{color:#06b6d4}
 .min-resumo{text-align:center;font-size:10px;color:var(--txt2);padding:2px 0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -5410,8 +5422,6 @@ function renderContaTabInto(ov) {
 
 function renderMinutagemTabInto(ov) {
   const pts = window.pts || [];
-  const now = new Date();
-  const curH = now.getHours();
   if (typeof _minFiltroHora === 'undefined') window._minFiltroHora = -1;
 
   let h = '<div class="min-wrap">';
@@ -5424,13 +5434,8 @@ function renderMinutagemTabInto(ov) {
   }
   h += '</div>';
 
-  // Se tem filtro de hora ativo, destaca hora atual
-  if (_minFiltroHora === -1) {
-    // Auto-seleciona a hora atual se nenhum filtro ativo
-  }
-
   const bins = {};
-  for (let m = 0; m < 60; m++) bins[m] = { total: 0, rosas: 0, soma: 0, max: 0 };
+  for (let m = 0; m < 60; m++) bins[m] = { total: 0, azul: 0, roxa: 0, rosa: 0, soma: 0, max: 0 };
 
   if (pts.length > 0) {
     pts.forEach(p => {
@@ -5444,7 +5449,9 @@ function renderMinutagemTabInto(ov) {
           bins[min].total++;
           bins[min].soma += v;
           bins[min].max = Math.max(bins[min].max, v);
-          if (v >= 10) bins[min].rosas++;
+          if (v >= 10) bins[min].rosa++;
+          else if (v >= 2) bins[min].roxa++;
+          else bins[min].azul++;
         }
       }
     });
@@ -5452,12 +5459,13 @@ function renderMinutagemTabInto(ov) {
 
   // Legenda
   h += '<div class="min-legenda">';
-  h += '<span><div class="dot dg"></div> PAGANDO (+rosas)</span>';
-  h += '<span><div class="dot dm"></div> MEDIO</span>';
-  h += '<span><div class="dot df"></div> FRIO</span>';
+  h += '<span><div class="dot dg"></div>🌸 ROSA = PAGANDO</span>';
+  h += '<span><div class="dot dm"></div>🟣 ROXO = MÉDIO</span>';
+  h += '<span><div class="dot df"></div>🔵 AZUL = FRIO</span>';
   h += '</div>';
 
-  const maxRosas = Math.max(1, ...Object.values(bins).map(b => b.rosas));
+  const maxRosas = Math.max(1, ...Object.values(bins).map(b => b.rosa));
+  const maxRoxas = Math.max(1, ...Object.values(bins).map(b => b.roxa));
   let totalVelas = 0;
   Object.values(bins).forEach(b => totalVelas += b.total);
 
@@ -5466,22 +5474,47 @@ function renderMinutagemTabInto(ov) {
     const b = bins[m];
     const mm = String(m).padStart(2, '0');
     let cls = 'min-cell';
-    let qty = '--';
+    let qty = '--', lbl = '';
 
     if (b.total > 0) {
-      qty = b.rosas; // mostrar rosas (pagamentos grandes)
-      const ratio = b.rosas / maxRosas;
-      if (ratio >= 0.5) cls += ' mg';      // pagando
-      else if (ratio >= 0.15) cls += ' mm'; // medio
-      else cls += ' mf';                     // frio
+      // Mostrar rosas (pagamentos grandes) como indicador principal
+      if (b.rosa > 0 && b.rosa >= b.roxa && b.rosa >= b.azul) {
+        cls += ' mg'; qty = b.rosa;
+      } else if (b.roxa > 0) {
+        cls += ' mm'; qty = b.roxa;
+      } else {
+        cls += ' mf'; qty = b.azul;
+      }
+      lbl = '<div class="ml">' + b.max.toFixed(0) + 'x</div>';
     } else {
       cls += ' mz';
     }
-    h += '<div class="' + cls + '" title="Min ' + mm + ' | ' + b.total + ' velas | ' + b.rosas + ' rosas | Maior: ' + b.max.toFixed(2) + 'x"><div class="mn">' + mm + '</div><div class="mq">' + qty + '</div><div class="ml">' + (b.total > 0 ? b.max.toFixed(0) + 'x' : '') + '</div></div>';
+    h += '<div class="' + cls + '" title="Min ' + mm + ' | ' + b.total + ' velas | 🌸' + b.rosa + ' 🟣' + b.roxa + ' 🔵' + b.azul + ' | Max ' + b.max.toFixed(2) + 'x"><div class="mn">' + mm + '</div><div class="mq">' + qty + '</div>' + lbl + '</div>';
   }
   h += '</div>';
 
-  h += '<div class="min-resumo">' + totalVelas + ' velas analisadas' + (_minFiltroHora >= 0 ? ' na hora ' + String(_minFiltroHora).padStart(2,'0') + 'h' : ' (todas as horas)') + '</div>';
+  h += '<div class="min-resumo">' + totalVelas + ' velas' + (_minFiltroHora >= 0 ? ' na hora ' + String(_minFiltroHora).padStart(2,'0') + 'h' : ' (todas as horas)') + '</div>';
+
+  // Próximos 10 minutos
+  const agora = new Date();
+  const minAtual = agora.getMinutes();
+  h += '<div class="min-prox">';
+  h += '<div class="min-prox-title">⏱️ PRÓXIMOS 10 MINUTOS</div>';
+  h += '<div class="min-prox-grid">';
+  for (let i = 1; i <= 10; i++) {
+    const m = (minAtual + i) % 60;
+    const b = bins[m];
+    const mm = String(m).padStart(2, '0');
+    let cls2 = 'min-prox-cell', status = 'sem dados', cor = '';
+    if (b.total > 0) {
+      if (b.rosa > 0 && b.rosa >= b.roxa && b.rosa >= b.azul) { cls2 += ' pg'; status = b.rosa + ' 🌸'; cor = '#f472b6'; }
+      else if (b.roxa > 0) { cls2 += ' pm'; status = b.roxa + ' 🟣'; cor = '#a855f7'; }
+      else { cls2 += ' pf'; status = b.azul + ' 🔵'; cor = '#06b6d4'; }
+    }
+    h += '<div class="' + cls2 + '" title="Min ' + mm + ': ' + b.total + ' velas historicas"><div class="pxm">' + mm + '</div><div class="pxs">+' + i + 'min</div><div class="pxr" style="color:' + cor + '">' + status + '</div></div>';
+  }
+  h += '</div></div>';
+
   h += '</div>';
   ov.innerHTML = h;
 }
