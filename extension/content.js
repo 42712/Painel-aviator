@@ -1,5 +1,21 @@
-// CAPTURADOR SORTENABET - AVIATOR 1 e 2
+// MARKIN CAPTURADOR - Qualquer casa Aviator
 const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
+
+function detectarCasa() {
+    const host = window.location.hostname.replace('www.','');
+    const mapa = {
+        'sortenabet.bet.br': 'SorteNaBet',
+        'betou.bet.br': 'Betou',
+        'pixreals.com': 'PixReals',
+        'bravo.bet.br': 'BravoBet',
+        'betao.bet.br': 'Betao',
+        'apostamax.bet.br': 'ApostaMax',
+        'sebet67.com': 'Sebet',
+        'vera.bet.br': 'Vera',
+        'iaeagle.pro': 'PixReals',
+    };
+    return mapa[host] || ('Casa: '+host.split('.')[0]);
+}
 
 function detectarAviator() {
     return window.location.href.includes('aviator2') ? 2 : 1;
@@ -31,7 +47,7 @@ function enviarVela(mult, rodada, timestamp, origem) {
         body: JSON.stringify({
             painel, multiplicador: multNum,
             rodada: rodada.toString(), timestamp: horario,
-            soma: calcularSoma(multNum), fonte: origem || "sortenabet"
+            soma: calcularSoma(multNum), fonte: detectarCasa()
         })
     }).then(r => r.json()).then(d => {
         if (d.ok) console.log(`✅ [AVIATOR ${painel}] ${multNum}x rodada ${rodada}`);
