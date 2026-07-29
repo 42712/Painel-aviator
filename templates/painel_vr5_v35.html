@@ -5123,14 +5123,14 @@ setTimeout(espAtualizar,600);
 
 // ========== SISTEMA DE ABAS (MARKIN PRO) ==========
 let abaAtual = 'principal';
-const CASAS = ['SorteNaBet Grafico 01','SorteNaBet Grafico 02'];
+const CASAS = ['SorteNaBet Aviator VIP 3','Aviator Painel 01'];
 let casaAtualNum = 1;
 let casaAtual = '';
 
-function initCasas() {
+function initCasas(force) {
   const sel = document.getElementById('casaSelect');
   if(!sel) return;
-  if(sel.options.length > 1) return; // ja carregado
+  if(!force && sel.options.length > 1) return; // ja carregado
   sel.innerHTML = '<option value="">Todas as casas</option>';
   CASAS.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
 }
@@ -5145,7 +5145,7 @@ async function carregarCasasAPI(){
     if(d.casas && d.casas.length > 0){
       CASAS.length = 0;
       d.casas.forEach(c => CASAS.push(c));
-      initCasas();
+      initCasas(true);
       console.log('[MARKIN] Casas carregadas:', d.casas.length);
       return;
     }
@@ -5157,7 +5157,7 @@ async function carregarCasasAPI(){
     if(d2.casas && d2.casas.length > 0){
       CASAS.length = 0;
       d2.casas.forEach(c => CASAS.push(c));
-      initCasas();
+      initCasas(true);
     }
   } catch(e2) {}
 }
