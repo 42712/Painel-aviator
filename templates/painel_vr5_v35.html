@@ -3413,7 +3413,12 @@ function carregarConfig(){
       // Restaura desenhos/marcações
       if(Array.isArray(dados.drawings)) drawings = dados.drawings.filter(d=>d && d.type!=='channel' && d.type!=='pointmark');
       // Restaura servidor
-      if(dados.servidor) Object.assign(srv, dados.servidor);
+      if(dados.servidor) {
+        srv.get    = dados.servidor.get    || srv.get;
+        srv.post   = dados.servidor.post   || srv.post;
+        srv.painel = dados.servidor.painel || srv.painel;
+        srv.poll   = dados.servidor.poll   || srv.poll;
+      }
     }
 
     // Força UI sempre mostrando MM ativas (travadas)
