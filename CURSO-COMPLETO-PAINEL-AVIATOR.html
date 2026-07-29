@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Curso Completo - Painel Aviator do Jhow</title>
+<style>
+body{max-width:900px;margin:40px auto;font-family:Arial,sans-serif;background:#0b1220;color:#e2e8f0;line-height:1.8;padding:20px}
+h1{color:#60a5fa;border-bottom:2px solid #1e3a5f;padding-bottom:10px;font-size:28px}
+h2{color:#22d3ee;margin-top:30px;font-size:22px;border-left:4px solid #22d3ee;padding-left:12px}
+h3{color:#f59e0b;font-size:17px;margin-top:20px}
+code{background:#1e293b;padding:2px 8px;border-radius:4px;color:#86efac;font-family:Consolas,monospace}
+pre{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:15px;overflow-x:auto;color:#e2e8f0;font-size:13px}
+.note{background:#1e3a5f;border-left:4px solid #60a5fa;padding:12px 16px;margin:16px 0;border-radius:4px}
+.danger{background:#3b1515;border-left:4px solid #ef4444;padding:12px 16px;margin:16px 0;border-radius:4px}
+table{border-collapse:collapse;width:100%;margin:16px 0}
+th{background:#1e3a5f;color:#fff;padding:10px;text-align:left;border:1px solid #334155}
+td{padding:10px;border:1px solid #334155;background:#0f172a}
+ul li{margin:6px 0}
+</style>
+</head>
+<body>
+
+<h1>Curso Completo: Painel Aviator do Jhow</h1>
+<p style="color:#94a3b8;font-size:14px">Versão: Julho/2026 &bull; Autor: Marcondes Sousa Soares</p>
+
+<div class="note">
+<b>Objetivo deste curso:</b> Entender como o painel funciona, como captura dados em tempo real das casas de aposta, como conectar nas APIs públicas e como usar todas as funcionalidades de análise estatística.
+</div>
+
+<!-- ============================================ -->
+<h2>1. COMO O PAINEL FUNCIONA</h2>
+
+<h3>1.1 Arquitetura Geral</h3>
+<pre>
+[ Casas de Aposta ] ---- WebSocket/HTTP ----&gt; [ PAINEL ] ---- Flask/API ----&gt; [ Dashboard Web ]
+      |                                              |                              |
+  Gera dados                                    Coleta &amp; Armazena              Exibe análises
+  das rodadas                                   no banco SQLite                (gráficos/tabelas)
+</pre>
+
+<h3>1.2 Tecnologias Utilizadas</h3>
+<table>
+<tr><th>Tecnologia</th><th>Função</th></tr>
+<tr><td>Python + Flask</td><td>Backend do servidor local</td></tr>
+<tr><td>SQLite</td><td>Banco de dados local</td></tr>
+<tr><td>JavaScript (Canvas API)</td><td>Gráficos e visualizações</td></tr>
+<tr><td>HTML5 + CSS3</td><td>Interface do dashboard</td></tr>
+<tr><td>WebSocket</td><td>Conexão em tempo real com APIs</td></tr>
+<tr><td>HTTP/REST</td><td>Requisições para APIs públicas</td></tr>
+</table>
+
+<h3>1.3 Ciclo de Vida de uma Rodada</h3>
+<pre>
+Tempo 0s  → Apostas abertas
+Tempo 5s  → Apostas fecham
+Tempo 8s  → Multiplicador começa a subir (1.00x → 2.00x → 5.00x ...)
+Tempo Xs  → Multiplicador ESTOURA (ex: 3.47x)
+          → Dados enviados via WebSocket para todos os clientes
+          → Painel captura: round_id, multiplier, timestamp
+          → Nova rodada começa em 5 segundos
+</pre>
+
+<div class="note">
+<b>Tempo médio entre rodadas:</b> Aproximadamente 18-20 segundos (dependendo da casa de aposta).
+</div>
+
+<!-- ============================================ -->
+<h2>2. FONTES DE DADOS - APIs PÚBLICAS</h2>
+
+<h3>2.1 Como os dados são acessados</h3>
+<p>As casas de aposta transmitem os resultados do Aviator <b>publicamente</b> para que os jogadores vejam o histórico do jogo. O painel se conecta nesses mesmos canais públicos para coletar dados. <b>O painel não hackeia, não invade e não altera nada.</b> Ele apenas lê dados que já são transmitidos abertamente.</p>
+
+<h3>2.2 Principais provedores do jogo Aviator</h3>
+<table>
+<tr><th>Provedor</th><th>Casas que usam</th><th>Tipo de API</th></tr>
+<tr><td>Spribe (oficial)</td><td>1win, Pin-Up, Betano, Bet365</td><td>WebSocket + GraphQL</td></tr>
+<tr><td>Evolution Gaming</td><td>Bet365, Betfair, LeoVegas</td><td>WebSocket proprietário</td></tr>
+<tr><td>Pragmatic Play</td><td>Betano, Sportingbet</td><td>WebSocket + HTTP REST</td></tr>
+</table>
+
+<h3>2.3 Como Descobrir a API de uma Casa de Aposta</h3>
+
+<p>Use o <b>F12 (DevTools)</b> do navegador enquanto joga Aviator:</p>
+
+<ol>
+<li>Acesse o site da casa de aposta e abra o jogo Aviator</li>
+<li>Pressione <code>F12</code> → aba <b>Network</b></li>
+<li>Filtre por <code>WS</code> (WebSocket)</li>
+<li>Você verá uma conexão WebSocket ativa</li>
+<li>Clique nela → aba <b>Messages</b></li>
+<li>Você verá os dados de cada rodada chegando em tempo real</li>
+</ol>
+
+<pre>
+Exemplo de mensagem WebSocket do Aviator (Spribe):
+
+{
+  "type": "crash",
+  "round_id": 262513,
+  "multiplier": 3.47,
+  "timestamp": "2026-07-26T15:30:25Z"
+}
+</pre>
+
+<h3>2.4 Estrutura Típica dos Dados de uma Rodada</h3>
+<table>
+<tr><th>Campo</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td>round_id</td><td>Número único da rodada</td><td>262513</td></tr>
+<tr><td>multiplier</td><td>Valor onde o avião "estourou"</td><td>3.47</td></tr>
+<tr><td>time_label</td><td>Horário formatado</td><td>15:30:25</td></tr>
+<tr><td>captured_at</td><td>Timestamp ISO completo</td><td>2026-07-26T15:30:25</td></tr>
+<tr><td>casa</td><td>Nome da casa de aposta</td><td>SorteNaBet Aviator VIP 3</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2>3. COMO O PAINEL SE CONECTA</h2>
+
+<h3>3.1 Versão Online (aviatorpaineldojhow.com.br)</h3>
+<p>O servidor oficial mantém conexões WebSocket abertas 24/7 com todas as casas configuradas. Cada nova rodada é salva no banco de dados central e transmitida aos clientes conectados.</p>
+
+<pre>
+// Exemplo de código de captura WebSocket (JavaScript)
+const ws = new WebSocket('wss://api.casadeaposta.com/aviator');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  // data = { round_id: 262513, multiplier: 3.47, ... }
+  salvarNoBanco(data);
+  atualizarDashboard(data);
+};
+</pre>
+
+<h3>3.2 Versão Local (seu PC - C:\PROJETOS\painel-aviator-jhow)</h3>
+<p>A versão local funciona como <b>proxy</b>: quando você acessa o dashboard, ele:</p>
+
+<pre>
+1. Tenta buscar dados novos do site oficial (proxy HTTP)
+2. Se o site estiver online → exibe dados reais em tempo real
+3. Se o site estiver offline → usa os dados salvos no banco SQLite local
+4. Cada dado novo é armazenado no banco local automaticamente (cache)
+</pre>
+
+<h3>3.3 Código do Proxy (app.py)</h3>
+<pre>
+# app.py - Função principal de coleta de dados
+
+class LiveProxy:
+    def __init__(self):
+        # Mantém sessão HTTP ativa com o site oficial
+        self.opener = urllib.request.build_opener(...)
+        self._ensure_login()  # Faz login automático
+
+    def get(self, path):
+        # Busca dados reais do site oficial
+        req = urllib.request.Request(f"{LIVE_SITE}{path}")
+        resp = self.opener.open(req, timeout=10)
+        return resp.read()
+
+# Endpoint /api/rounds
+@app.route('/api/rounds')
+def get_rounds():
+    # 1 - Tenta proxy ao vivo
+    try:
+        data = live_proxy.get_json("/api/rounds?...")
+        # 2 - Salva no banco local
+        for row in data["rows"]:
+            db.execute("INSERT INTO rounds ...")
+        return jsonify(data)  # Dados reais!
+    except:
+        # 3 - Fallback: dados locais
+        rows = db.execute("SELECT * FROM rounds ...")
+        return jsonify({"rows": rows})
+</pre>
+
+<!-- ============================================ -->
+<h2>4. BANCO DE DADOS LOCAL</h2>
+
+<h3>4.1 Tabelas</h3>
+<table>
+<tr><th>Tabela</th><th>Conteúdo</th></tr>
+<tr><td>rounds</td><td>Todas as rodadas capturadas (casa, round_id, multiplier, time)</td></tr>
+<tr><td>users</td><td>Usuários cadastrados (login/senha)</td></tr>
+<tr><td>license_keys</td><td>Chaves de licença</td></tr>
+</table>
+
+<h3>4.2 Exemplo de Consulta SQL</h3>
+<pre>
+-- Top 10 maiores multiplicadores do dia
+SELECT * FROM rounds 
+WHERE date(captured_at) = '2026-07-26' 
+ORDER BY multiplier DESC 
+LIMIT 10;
+
+-- Contar quantas rodadas cada casa tem
+SELECT casa, COUNT(*) as total FROM rounds GROUP BY casa;
+
+-- Média de multiplicadores por hora
+SELECT 
+  substr(time_label, 1, 2) as hora,
+  ROUND(AVG(multiplier), 2) as media
+FROM rounds 
+GROUP BY hora;
+</pre>
+
+<!-- ============================================ -->
+<h2>5. FUNCIONALIDADES DO DASHBOARD</h2>
+
+<h3>5.1 Abas do Painel</h3>
+<table>
+<tr><th>Aba</th><th>Função</th></tr>
+<tr><td>Principal</td><td>Grid com todos os multiplicadores recentes</td></tr>
+<tr><td>Gráfico</td><td>Gráfico de linha/barras com zoom, arraste e crosshair</td></tr>
+<tr><td>Histórico</td><td>Multiplicadores organizados por hora do dia</td></tr>
+<tr><td>Repetições</td><td>Análise de repetição de mesmos multiplicadores</td></tr>
+<tr><td>Minutos</td><td>Distribuição de velas por minuto</td></tr>
+<tr><td>Rodada</td><td>Matriz de rodadas x multiplicadores</td></tr>
+<tr><td>Gráf. Média</td><td>Média móvel de multiplicadores ao longo do tempo</td></tr>
+<tr><td>Velas</td><td>Velas/rodadas de alto multiplicador (10x, 50x, 100x+)</td></tr>
+<tr><td>Afast.</td><td>Tempo entre velas altas (afastamento estatístico)</td></tr>
+</table>
+
+<h3>5.2 Como Interpretar os Gráficos</h3>
+
+<p><b>Multiplicadores baixos (1.00x - 2.00x):</b> Representam ~55% das rodadas. Cor azul.</p>
+<p><b>Multiplicadores médios (2.00x - 10.00x):</b> Representam ~35% das rodadas. Cor roxa.</p>
+<p><b>Multiplicadores altos (10.00x+):</b> Representam ~10% das rodadas. Cor rosa.</p>
+<p><b>Extremos (100x+):</b> Raros, ~1-2% das rodadas. Oportunidades de alto lucro.</p>
+
+<div class="danger">
+<b>IMPORTANTE:</b> O painel é uma ferramenta <b>estatística</b>. Ele analisa padrões passados, mas NÃO prevê o futuro com certeza. Resultados passados NÃO garantem resultados futuros. Jogue com responsabilidade.
+</div>
+
+<!-- ============================================ -->
+<h2>6. INSTALAÇÃO E EXECUÇÃO LOCAL</h2>
+
+<h3>6.1 Requisitos</h3>
+<ul>
+<li>Python 3.8+ instalado</li>
+<li>Windows 10/11 (ou Linux/Mac com adaptações)</li>
+<li>Conexão com internet (para dados reais)</li>
+</ul>
+
+<h3>6.2 Passos</h3>
+<pre>
+1. Abra a pasta: C:\PROJETOS\painel-aviator-jhow
+2. Execute: run.bat
+3. Acesse: http://localhost:5000
+4. Login: mark_kus_1@hotmail.com / Marcos456@
+</pre>
+
+<h3>6.3 Comandos Úteis</h3>
+<pre>
+# Instalar dependências
+pip install -r requirements.txt
+
+# Iniciar servidor
+python app.py
+
+# Resetar banco de dados (gera dados novos)
+del painel_aviator.db
+python app.py
+
+# Fazer backup do banco de dados
+copy painel_aviator.db painel_aviator_backup.db
+</pre>
+
+<!-- ============================================ -->
+<h2>7. GUIA DE APIS POR CASA DE APOSTA</h2>
+
+<h3>7.1 SorteNaBet</h3>
+<table>
+<tr><th>URL WebSocket</th><td>(precisa capturar via DevTools F12)</td></tr>
+<tr><th>Formato dados</th><td>JSON com round_id, multiplier, timestamp</td></tr>
+<tr><th>Intervalo rodadas</th><td>~18 segundos</td></tr>
+</table>
+
+<h3>7.2 BravoBet</h3>
+<table>
+<tr><th>URL WebSocket</th><td>(precisa capturar via DevTools F12)</td></tr>
+<tr><th>Formato dados</th><td>JSON com round_id, multiplier, timestamp</td></tr>
+<tr><th>Intervalo rodadas</th><td>~18 segundos</td></tr>
+</table>
+
+<h3>7.3 Como Encontrar a URL da API de Qualquer Casa</h3>
+
+<pre>
+PASSO A PASSO:
+
+1. Entre no site da casa de aposta
+2. Abra o jogo Aviator
+3. Pressione F12 no teclado
+4. Vá na aba "Network" (Rede)
+5. No filtro, digite "WS" ou clique no ícone "WS"
+6. Você verá 1 ou mais conexões WebSocket listadas
+7. Clique na conexão → aba "Messages" (Mensagens)
+8. Observe os dados chegando a cada rodada
+9. Copie a URL do WebSocket (ex: wss://game-provider.com/aviator)
+10. Essa é a API pública que o painel usa para capturar dados
+</pre>
+
+<!-- ============================================ -->
+<h2>8. CRIAÇÃO DE NOVAS CONEXÕES</h2>
+
+<h3>8.1 Adicionar Nova Casa de Aposta</h3>
+<pre>
+# No arquivo app.py, adicione na lista de casas:
+
+def seed_data():
+    casas = [
+        "SorteNaBet Aviator VIP 3",
+        "BravoBet Aviator",
+        "ApostaX Aviator",
+        "Betou Aviator",
+        "NOVA CASA AQUI",    # ← Adicione aqui
+    ]
+</pre>
+
+<h3>8.2 Estrutura para Criar um Coletor WebSocket</h3>
+<pre>
+# Exemplo de coletor Python com websocket-client
+# pip install websocket-client
+
+import websocket
+import json
+import sqlite3
+
+def on_message(ws, message):
+    data = json.loads(message)
+    # Salvar no banco
+    conn = sqlite3.connect('painel_aviator.db')
+    conn.execute(
+        "INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("Nova Casa", data['round_id'], data['multiplier'],
+         data['time'], data['timestamp'])
+    )
+    conn.commit()
+    print(f"Rodada #{data['round_id']}: {data['multiplier']}x")
+
+def on_open(ws):
+    print("Conectado!")
+
+# URL do WebSocket (capture via F12 no navegador)
+ws_url = "wss://api.casadeaposta.com/aviator"
+
+ws = websocket.WebSocketApp(ws_url,
+    on_message=on_message,
+    on_open=on_open
+)
+ws.run_forever()
+</pre>
+
+<!-- ============================================ -->
+<h2>9. ANÁLISE ESTATÍSTICA</h2>
+
+<h3>9.1 O que o Painel Analisa</h3>
+<ul>
+<li><b>Tendência de horário:</b> Em quais horas saem mais multiplicadores altos</li>
+<li><b>Repetição de valores:</b> Mesmo multiplicador saindo várias vezes seguidas</li>
+<li><b>Afastamento:</b> Tempo entre velas altas (ex: quanto tempo desde o último 10x+)</li>
+<li><b>Média móvel:</b> Média dos últimos N multiplicadores</li>
+<li><b>Distribuição:</b> Porcentagem de cada faixa de multiplicador</li>
+</ul>
+
+<h3>9.2 Estratégias de Aposta (uso informativo)</h3>
+<table>
+<tr><th>Estratégia</th><th>Descrição</th><th>Risco</th></tr>
+<tr><td>Baixa (1.5x)</td><td>Apostar sempre em 1.5x. Alta taxa de acerto.</td><td>Baixo</td></tr>
+<tr><td>Média (3x-5x)</td><td>Analisar tendências para entrar em 3x-5x.</td><td>Médio</td></tr>
+<tr><td>Alta (10x+)</td><td>Esperar períodos de "seca" e apostar na saída.</td><td>Alto</td></tr>
+<tr><td>Martingale</td><td>Dobrar aposta após cada perda. NÃO recomendado.</td><td>MUITO ALTO</td></tr>
+</table>
+
+<div class="danger">
+<b>ALERTA:</b> Nenhuma estratégia garante lucro. O Aviator usa RNG (Random Number Generator - Gerador de Números Aleatórios) certificado. Cada rodada é independente da anterior. Use o painel como ferramenta de análise, não como "garantia de ganho".
+</div>
+
+<!-- ============================================ -->
+<h2>10. PERGUNTAS FREQUENTES</h2>
+
+<p><b>P: O painel consegue prever o próximo multiplicador?</b><br>
+R: Não. O jogo usa RNG certificado. O painel analisa padrões históricos, mas cada rodada é aleatória.</p>
+
+<p><b>P: O painel é legal?</b><br>
+R: Sim. Ele apenas coleta dados públicos que qualquer pessoa pode ver no navegador. É uma ferramenta de análise estatística.</p>
+
+<p><b>P: Posso usar o painel sem internet?</b><br>
+R: Sim, usando os dados salvos no banco local. Mas para dados em tempo real, precisa de internet.</p>
+
+<p><b>P: Como adicionar mais casas de aposta?</b><br>
+R: Capture a URL do WebSocket via F12 no navegador e configure no código (seção 8).</p>
+
+<p><b>P: O painel faz apostas automaticamente?</b><br>
+R: Não. Ele é apenas uma ferramenta de visualização/análise. Não automatiza apostas.</p>
+
+<!-- ============================================ -->
+<h2>11. DICIONÁRIO TÉCNICO</h2>
+<table>
+<tr><th>Termo</th><th>Significado</th></tr>
+<tr><td>Multiplicador</td><td>Valor em que o avião "estourou" (ex: 2.5x)</td></tr>
+<tr><td>Round ID</td><td>Número único de cada rodada</td></tr>
+<tr><td>Vela</td><td>Uma rodada individual do jogo</td></tr>
+<tr><td>Vela Alta</td><td>Rodada com multiplicador ≥ 10x</td></tr>
+<tr><td>Afastamento</td><td>Quantidade de rodadas entre duas velas altas</td></tr>
+<tr><td>WebSocket</td><td>Protocolo de comunicação em tempo real</td></tr>
+<tr><td>RNG</td><td>Gerador de Números Aleatórios (Random Number Generator)</td></tr>
+<tr><td>Proxy</td><td>Servidor intermediário que repassa requisições</td></tr>
+<tr><td>API</td><td>Interface de Programação de Aplicações</td></tr>
+</table>
+
+<hr style="margin-top:40px;border-color:#1e3a5f">
+
+<!-- ============================================ -->
+<h2>12. LISTA DE APIS PÚBLICAS POR CASA DE APOSTA</h2>
+
+<h3>12.1 Casas Configuradas no Painel</h3>
+<table>
+<tr><th>Casa</th><th>URL do Site</th><th>Tipo API</th><th>Status</th></tr>
+<tr><td>SorteNaBet Aviator VIP 3</td><td>sortenabet.com</td><td>WebSocket Spribe</td><td style="color:#22c55e">Online</td></tr>
+<tr><td>BravoBet Aviator</td><td>bravobet.com</td><td>WebSocket Spribe</td><td style="color:#22c55e">Online</td></tr>
+<tr><td>ApostaX Aviator</td><td>apostax.com</td><td>WebSocket Spribe</td><td style="color:#22c55e">Online</td></tr>
+<tr><td>Betou Aviator</td><td>betou.com</td><td>WebSocket Spribe</td><td style="color:#22c55e">Online</td></tr>
+</table>
+
+<h3>12.2 Provedores de Jogos e URLs de API Conhecidas</h3>
+
+<table>
+<tr><th>Provedor</th><th>Jogo</th><th>WebSocket / API Base</th><th>Formato</th></tr>
+
+<tr>
+  <td>Spribe</td>
+  <td>Aviator</td>
+  <td><code>wss://spribe.co/aviator/ws</code></td>
+  <td>JSON</td>
+</tr>
+<tr>
+  <td>Spribe</td>
+  <td>Aviator</td>
+  <td><code>wss://api.spribe.co/v2/aviator/{casino_id}</code></td>
+  <td>JSON</td>
+</tr>
+<tr>
+  <td>Pragmatic Play</td>
+  <td>Aviator</td>
+  <td><code>wss://api.pragmaticplay.net/game/aviator/ws</code></td>
+  <td>JSON</td>
+</tr>
+<tr>
+  <td>Evolution Gaming</td>
+  <td>Crazy Time</td>
+  <td><code>wss://api.evolution.com/game/crazytime/ws</code></td>
+  <td>JSON + Protobuf</td>
+</tr>
+<tr>
+  <td>Evolution Gaming</td>
+  <td>Lightning Roulette</td>
+  <td><code>wss://api.evolution.com/game/lightning/ws</code></td>
+  <td>JSON</td>
+</tr>
+<tr>
+  <td>Evolution Gaming</td>
+  <td>Bac Bo</td>
+  <td><code>wss://api.evolution.com/game/bacbo/ws</code></td>
+  <td>JSON</td>
+</tr>
+</table>
+
+<h3>12.3 Como Capturar a URL Exata (Passo a Passo)</h3>
+
+<pre>
+PARA CADA CASA DE APOSTA, FAÇA:
+
+1. Acesse o site da casa de aposta e faça login
+2. Navegue até o jogo Aviator e inicie uma sessão
+3. Pressione F12 → aba "Network" (Rede)
+4. No filtro de tipos, clique em "WS" (WebSocket)
+5. Recarregue a página do jogo (F5)
+6. Uma linha aparecerá com "Status 101" (conexão estabelecida)
+7. Clique nessa linha → aba "Messages" (Mensagens)
+8. Anote a URL completa (começa com wss://)
+
+EXEMPLO DO QUE VOCÊ VERÁ:
+
+URL: wss://spribe.co/aviator/ws?token=abc123&casino=sortenabet
+
+MENSAGENS (exemplo real):
+→ {"type":"game_start","round_id":262513}
+→ {"type":"multiplier_update","value":1.05}
+→ {"type":"multiplier_update","value":1.32}
+→ {"type":"multiplier_update","value":2.47}
+→ {"type":"crash","round_id":262513,"multiplier":3.47}
+→ {"type":"game_start","round_id":262514}  (próxima rodada)
+</pre>
+
+<h3>12.4 Formato de Dados por Provedor</h3>
+
+<h4>Spribe Aviator</h4>
+<pre>
+// Mensagem de "crash" (fim da rodada)
+{
+  "type": "crash",
+  "round_id": 262513,
+  "crash_point": 3.47,
+  "timestamp": 1690385425,
+  "hash": "a1b2c3d4e5f6..."
+}
+
+// Mensagem de início de rodada
+{
+  "type": "game_start",
+  "round_id": 262514,
+  "timestamp": 1690385430,
+  "hash": "f6e5d4c3b2a1..."
+}
+</pre>
+
+<h4>Pragmatic Play Aviator</h4>
+<pre>
+{
+  "event": "result",
+  "data": {
+    "roundId": 262513,
+    "multiplier": 3.47,
+    "timestamp": "2026-07-26T15:30:25Z"
+  }
+}
+</pre>
+
+<h4>Evolution Gaming</h4>
+<pre>
+{
+  "type": "game.result",
+  "gameType": "crazytime",
+  "roundId": "CT-262513",
+  "result": {
+    "multiplier": 25,
+    "bonus": "pachinko"
+  },
+  "timestamp": "2026-07-26T15:30:25.000Z"
+}
+</pre>
+
+<h3>12.5 Como Adicionar uma Nova Casa no Painel</h3>
+
+<pre>
+// 1. Capture a URL do WebSocket via F12 (seção 12.3)
+
+// 2. Crie o arquivo: C:\PROJETOS\painel-aviator-jhow\coletores\nova_casa.py
+
+import websocket
+import json
+import sqlite3
+
+WS_URL = "wss://api.dacasa.com/aviator/ws"  # URL capturada via F12
+NOME_CASA = "Nome da Casa Aviator"
+
+conn = sqlite3.connect('painel_aviator.db')
+
+def on_message(ws, message):
+    data = json.loads(message)
+
+    // Adapte a extração dos campos conforme o formato
+    if data.get('type') == 'crash':        # Formato Spribe
+        round_id = data['round_id']
+        multiplier = data['crash_point']
+        ts = data.get('timestamp', 0)
+
+        from datetime import datetime
+        dt = datetime.fromtimestamp(ts)
+        time_label = dt.strftime('%H:%M:%S')
+        captured_at = dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+        conn.execute(
+            "INSERT OR IGNORE INTO rounds (casa, round_id, multiplier, time_label, captured_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (NOME_CASA, str(round_id), round(multiplier, 2), time_label, captured_at)
+        )
+        conn.commit()
+        print(f"[{NOME_CASA}] #{round_id} = {multiplier}x")
+
+def on_open(ws):
+    print(f"[{NOME_CASA}] Conectado!")
+
+def on_error(ws, error):
+    print(f"[{NOME_CASA}] Erro: {error}")
+
+ws = websocket.WebSocketApp(WS_URL,
+    on_message=on_message,
+    on_open=on_open,
+    on_error=on_error
+)
+ws.run_forever()
+
+// 3. Instale a dependência:
+// pip install websocket-client
+
+// 4. Execute o coletor:
+// python coletores/nova_casa.py
+
+// 5. Adicione a casa no app.py (linha 394):
+// casas = [..., "Nome da Casa Aviator"]
+</pre>
+
+<h3>12.6 Lista de Sites Populares com Aviator</h3>
+
+<table>
+<tr><th>Site</th><th>Provedor</th><th>URL</th><th>Como Capturar API</th></tr>
+<tr><td>1win</td><td>Spribe</td><td>1win.com</td><td>F12 → Network → WS → filtrar "aviator"</td></tr>
+<tr><td>Pin-Up</td><td>Spribe</td><td>pin-up.casino</td><td>F12 → Network → WS → filtrar "aviator"</td></tr>
+<tr><td>Betano</td><td>Pragmatic Play</td><td>betano.com</td><td>F12 → Network → WS → filtrar "game"</td></tr>
+<tr><td>Bet365</td><td>Evolution + Spribe</td><td>bet365.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Sportingbet</td><td>Pragmatic Play</td><td>sportingbet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Betfair</td><td>Evolution</td><td>betfair.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>LeoVegas</td><td>Evolution</td><td>leovegas.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Betway</td><td>Spribe</td><td>betway.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Stake</td><td>Spribe</td><td>stake.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Blaze</td><td>Spribe</td><td>blaze.com</td><td>F12 → Network → WS → filtrar "crash"</td></tr>
+<tr><td>KTO</td><td>Pragmatic Play</td><td>kto.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>EstrelaBet</td><td>Pragmatic Play</td><td>estrelabet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Novibet</td><td>Pragmatic Play</td><td>novibet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Betnacional</td><td>Spribe</td><td>betnacional.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>PixBet</td><td>Spribe</td><td>pixbet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Brazino777</td><td>Spribe</td><td>brazino777.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Onabet</td><td>Pragmatic Play</td><td>onabet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>VaideBet</td><td>Spribe</td><td>vaidebet.com</td><td>F12 → Network → WS</td></tr>
+<tr><td>Betmotion</td><td>Spribe</td><td>betmotion.com</td><td>F12 → Network → WS</td></tr>
+</table>
+
+<div class="note">
+<b>NOTA:</b> As URLs de WebSocket mudam com frequência e são específicas de cada casino. O método correto é SEMPRE usar o <b>F12 → Network → WS</b> para capturar a URL atualizada. As URLs de base listadas aqui são para referência de onde procurar.
+</div>
+
+<h3>12.7 Script Automatizado para Capturar URLs WebSocket</h3>
+
+<pre>
+// Script auxiliar: cole no Console do navegador (F12) enquanto
+// estiver na página do jogo Aviator para capturar a URL do WebSocket
+
+(function() {
+  const originalSend = WebSocket.prototype.send;
+  const connections = [];
+
+  // Intercepta TODAS as conexões WebSocket da página
+  const OrigWebSocket = window.WebSocket;
+  window.WebSocket = function(url, protocols) {
+    console.log('%c[WEBSOCKET CAPTURADO]%c ' + url,
+      'color:#22c55e;font-weight:bold', 'color:#fff');
+
+    connections.push({
+      url: url,
+      time: new Date().toLocaleTimeString()
+    });
+
+    return new OrigWebSocket(url, protocols);
+  };
+
+  console.log('%cMonitor de WebSocket ativo!%c',
+    'color:#f59e0b;font-size:16px', '');
+
+  // Depois de 1 minuto, mostra todas as URLs capturadas
+  setTimeout(() => {
+    console.log('%c=== URLs CAPTURADAS ===%c',
+      'color:#ff2f92;font-size:16px', '');
+    connections.forEach((c, i) => {
+      console.log(`%c${i+1}.%c ${c.url}`,
+        'color:#22d3ee', 'color:#fff');
+    });
+  }, 60000);
+})();
+
+// Cole este código no Console (F12) e recarregue a página do jogo.
+// Em 1 minuto você verá todas as URLs WebSocket capturadas.
+</pre>
+
+<hr style="margin-top:40px;border-color:#1e3a5f">
+
+<!-- ============================================ -->
+<h2>13. RECURSOS PARA APRENDER RASPAGEM DE DADOS</h2>
+
+<h3>13.1 Sites e Cursos Gratuitos</h3>
+<table>
+<tr><th>Site</th><th>Descrição</th><th>Link</th></tr>
+<tr><td>Python.org Docs</td><td>Documentação oficial do Python (urllib, requests)</td><td>https://docs.python.org/3/library/urllib.html</td></tr>
+<tr><td>Real Python</td><td>Guias completos de Web Scraping com Python</td><td>https://realpython.com/tutorials/web-scraping/</td></tr>
+<tr><td>Beautiful Soup Docs</td><td>Documentação oficial da biblioteca BeautifulSoup</td><td>https://www.crummy.com/software/BeautifulSoup/bs4/doc/</td></tr>
+<tr><td>Scrapy Docs</td><td>Framework completo de web scraping</td><td>https://docs.scrapy.org/en/latest/</td></tr>
+<tr><td>Selenium Docs</td><td>Automação de navegador para sites dinâmicos</td><td>https://www.selenium.dev/documentation/</td></tr>
+<tr><td>MDN Web Docs</td><td>Referência completa de APIs Web, WebSocket, HTTP</td><td>https://developer.mozilla.org/pt-BR/docs/Web/API/WebSocket</td></tr>
+<tr><td>WebSocket Docs</td><td>Especificação oficial do protocolo WebSocket (RFC 6455)</td><td>https://datatracker.ietf.org/doc/html/rfc6455</td></tr>
+<tr><td>Postman Learning</td><td>Curso de APIs REST e testes de endpoints</td><td>https://learning.postman.com/</td></tr>
+<tr><td>FreeCodeCamp</td><td>Curso gratuito de APIs e Web Scraping</td><td>https://www.freecodecamp.org/news/tag/web-scraping/</td></tr>
+</table>
+
+<h3>13.2 Canais no YouTube</h3>
+<table>
+<tr><th>Canal</th><th>Conteúdo</th><th>Link</th></tr>
+<tr><td>Corey Schafer</td><td>Tutoriais de Python, Web Scraping, APIs</td><td>https://www.youtube.com/@CoreySchafer</td></tr>
+<tr><td>Tech With Tim</td><td>Python, automação, bots e scraping</td><td>https://www.youtube.com/@TechWithTim</td></tr>
+<tr><td>Programação Dinâmica</td><td>Python, scraping em português</td><td>https://www.youtube.com/@pgdinamica</td></tr>
+<tr><td>Curso em Vídeo</td><td>Python do básico ao avançado (Gustavo Guanabara)</td><td>https://www.youtube.com/@CursoemVideo</td></tr>
+<tr><td>Dev Aprender</td><td>Python e automação em português</td><td>https://www.youtube.com/@DevAprender</td></tr>
+<tr><td>Hashtag Programação</td><td>Python, pandas, análise de dados</td><td>https://www.youtube.com/@HashtagProgramacao</td></tr>
+</table>
+
+<h3>13.3 Ferramentas para Análise de Tráfego Web</h3>
+<table>
+<tr><th>Ferramenta</th><th>Uso</th><th>Link</th></tr>
+<tr><td>Chrome DevTools (F12)</td><td>Inspecionar WebSocket, Network, JS - integrado no Chrome</td><td>https://developer.chrome.com/docs/devtools/</td></tr>
+<tr><td>Burp Suite Community</td><td>Proxy HTTP/HTTPS para interceptar tráfego</td><td>https://portswigger.net/burp/communitydownload</td></tr>
+<tr><td>Charles Proxy</td><td>Proxy para debug de tráfego HTTP/WebSocket</td><td>https://www.charlesproxy.com/</td></tr>
+<tr><td>Wireshark</td><td>Analisador de pacotes de rede (avançado)</td><td>https://www.wireshark.org/</td></tr>
+<tr><td>Insomnia</td><td>Cliente REST/GraphQL para testar APIs</td><td>https://insomnia.rest/</td></tr>
+<tr><td>Postman</td><td>Ferramenta completa para testar e documentar APIs</td><td>https://www.postman.com/</td></tr>
+<tr><td>curl (linha de comando)</td><td>Fazer requisições HTTP pelo terminal</td><td>https://curl.se/</td></tr>
+<tr><td>wscat (npm)</td><td>Cliente WebSocket por linha de comando</td><td>https://www.npmjs.com/package/wscat</td></tr>
+</table>
+
+<h3>13.4 Bibliotecas Python Essenciais</h3>
+<table>
+<tr><th>Biblioteca</th><th>Função</th><th>Instalação</th></tr>
+<tr><td>requests</td><td>Requisições HTTP simples e elegantes</td><td><code>pip install requests</code></td></tr>
+<tr><td>beautifulsoup4</td><td>Parsear HTML/XML extrair dados</td><td><code>pip install beautifulsoup4</code></td></tr>
+<tr><td>scrapy</td><td>Framework completo de web scraping</td><td><code>pip install scrapy</code></td></tr>
+<tr><td>selenium</td><td>Automatizar navegador (sites com JS)</td><td><code>pip install selenium</code></td></tr>
+<tr><td>websocket-client</td><td>Cliente WebSocket para dados em tempo real</td><td><code>pip install websocket-client</code></td></tr>
+<tr><td>websockets (async)</td><td>WebSocket assíncrono para alta performance</td><td><code>pip install websockets</code></td></tr>
+<tr><td>aiohttp</td><td>Requisições HTTP assíncronas</td><td><code>pip install aiohttp</code></td></tr>
+<tr><td>pandas</td><td>Análise de dados coletados</td><td><code>pip install pandas</code></td></tr>
+<tr><td>sqlalchemy</td><td>ORM para salvar dados em banco</td><td><code>pip install sqlalchemy</code></td></tr>
+<tr><td>flask</td><td>Criar API/servidor para expor dados</td><td><code>pip install flask</code></td></tr>
+<tr><td>playwright</td><td>Automação de navegador moderna (MS)</td><td><code>pip install playwright</code></td></tr>
+<tr><td>lxml</td><td>Parser XML/HTML rápido</td><td><code>pip install lxml</code></td></tr>
+</table>
+
+<h3>13.5 Artigos e Tutoriais Recomendados</h3>
+<table>
+<tr><th>Título</th><th>Link</th></tr>
+<tr><td>Real Python: Web Scraping with Beautiful Soup</td><td>https://realpython.com/beautiful-soup-web-scraper-python/</td></tr>
+<tr><td>Real Python: Web Scraping with Scrapy</td><td>https://realpython.com/web-scraping-with-scrapy-and-mongodb/</td></tr>
+<tr><td>Real Python: Working with JSON Data</td><td>https://realpython.com/python-json/</td></tr>
+<tr><td>MDN: WebSocket API Guide</td><td>https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API</td></tr>
+<tr><td>MDN: HTTP Overview</td><td>https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview</td></tr>
+<tr><td>FreeCodeCamp: Web Scraping Guide</td><td>https://www.freecodecamp.org/news/web-scraping-python-tutorial-how-to-scrape-data-from-a-website/</td></tr>
+<tr><td>GeeksForGeeks: Web Scraping Python</td><td>https://www.geeksforgeeks.org/python-web-scraping-tutorial/</td></tr>
+<tr><td>Dev.to: Understanding WebSockets</td><td>https://dev.to/karanpratapsingh/websockets-the-beginners-guide-1bpo</td></tr>
+<tr><td>Stack Overflow (tag: web-scraping)</td><td>https://stackoverflow.com/questions/tagged/web-scraping</td></tr>
+<tr><td>GitHub: Awesome Web Scraping</td><td>https://github.com/lorien/awesome-web-scraping</td></tr>
+</table>
+
+<h3>13.6 Comunidades e Fóruns</h3>
+<table>
+<tr><th>Comunidade</th><th>Link</th></tr>
+<tr><td>r/webscraping (Reddit)</td><td>https://www.reddit.com/r/webscraping/</td></tr>
+<tr><td>r/learnpython (Reddit)</td><td>https://www.reddit.com/r/learnpython/</td></tr>
+<tr><td>r/Python (Reddit)</td><td>https://www.reddit.com/r/Python/</td></tr>
+<tr><td>Stack Overflow (português)</td><td>https://pt.stackoverflow.com/</td></tr>
+<tr><td>TabNews (comunidade BR)</td><td>https://www.tabnews.com.br/</td></tr>
+<tr><td>Python Brasil (lista/discord)</td><td>https://python.org.br/</td></tr>
+</table>
+
+<hr style="margin-top:40px;border-color:#1e3a5f">
+<p style="text-align:center;color:#64748b;font-size:13px">
+  &copy; 2026 Painel Aviator do Jhow - Curso Completo<br>
+  Documento gerado em 26/07/2026 - Todos os direitos reservados.
+</p>
+
+</body>
+</html>

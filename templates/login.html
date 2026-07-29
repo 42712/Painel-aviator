@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Entrar · Painel Aviator do Jhow</title>
+<style>
+*{box-sizing:border-box}html,body{min-height:100%}body{margin:0;background:#030814;color:#f8fafc;font-family:Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;padding:18px;overflow-x:hidden}.bg{position:fixed;inset:0;background:radial-gradient(circle at top,#1e293b 0,#030814 55%,#000 100%);z-index:-2}.bg:after{content:"";position:absolute;inset:0;background:url('/static/logo_aviator_jhow_watermark.png') center/contain no-repeat;opacity:.28;filter:drop-shadow(0 20px 80px rgba(0,0,0,.9));z-index:-1}.card{width:min(460px,96vw);background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(8,15,28,.92));border:1px solid rgba(148,163,184,.28);border-radius:18px;padding:24px;box-shadow:0 30px 110px rgba(0,0,0,.78),0 0 0 1px rgba(255,255,255,.04) inset;backdrop-filter:blur(12px)}.brand{text-align:center;font-size:26px;font-weight:900;margin-bottom:6px}.sub{text-align:center;color:#cbd5e1;font-size:13px;font-weight:800;margin-bottom:18px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:rgba(2,6,23,.72);padding:6px;border-radius:12px;border:1px solid rgba(148,163,184,.16);margin-bottom:18px}.tab{height:42px;margin:0;border:0;border-radius:9px;background:transparent;color:#cbd5e1;font-weight:900;cursor:pointer;box-shadow:none}.tab.active{background:#2563eb;color:#fff;box-shadow:0 10px 30px rgba(37,99,235,.25)}.panel{display:none}.panel.active{display:block}label{display:flex;flex-direction:column;gap:6px;color:#cbd5e1;font-weight:900;font-size:13px;margin-top:12px}input{height:43px;background:rgba(11,18,32,.94);color:#fff;border:1px solid rgba(148,163,184,.34);border-radius:8px;padding:8px 11px;font-size:16px;font-weight:900;outline:none}input:focus{border-color:#60a5fa}.passWrap{position:relative}.passWrap input{width:100%;padding-right:48px}.togglePass{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:34px;height:30px;border:0;border-radius:7px;background:rgba(37,99,235,.18);color:#dbeafe;font-size:15px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}.togglePass:hover{background:rgba(37,99,235,.32)}.btn{width:100%;height:43px;margin-top:16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 30px rgba(22,163,74,.22)}.btn:hover{filter:brightness(1.08)}.btn.secondary{background:#2563eb;box-shadow:0 10px 30px rgba(37,99,235,.22)}.msg{min-height:20px;text-align:center;color:#fca5a5;font-size:13px;font-weight:900;margin-top:12px;line-height:1.35}.msg.ok{color:#86efac}.hint{margin-top:14px;color:#94a3b8;text-align:center;font-size:12px;line-height:1.35}.hint b{color:#e2e8f0}.small{font-size:12px;color:#94a3b8;font-weight:800;margin-top:7px;line-height:1.35}.check{display:flex;flex-direction:row;align-items:flex-start;gap:10px;margin-top:14px;color:#cbd5e1;font-size:12px;font-weight:800;line-height:1.35}.check input{width:18px;height:18px;min-width:18px;margin-top:0}.check a{color:#93c5fd;text-decoration:none}.check a:hover{text-decoration:underline}.linkbtn{border:0;background:transparent;color:#93c5fd;font-weight:900;cursor:pointer;margin-top:10px;padding:0;text-align:center;width:100%;font-size:13px}.linkbtn:hover{text-decoration:underline}.resetBox{display:none;margin-top:12px;padding:12px;border:1px solid rgba(147,197,253,.28);border-radius:10px;background:rgba(15,23,42,.62)}.resetBox.active{display:block}.resetLink{word-break:break-all;color:#93c5fd;font-weight:900;font-size:12px;margin-top:8px}.rules{margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.45;font-weight:800}.legalFooter{margin-top:16px;text-align:center;color:#94a3b8;font-size:11px;font-weight:800;line-height:1.55}.legalFooter a{color:#93c5fd;text-decoration:none}.legalFooter a:hover{text-decoration:underline}@media(max-height:760px){body{align-items:flex-start}.card{margin:10px 0}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="card">
+  <div class="brand">Painel Aviator do Jhow</div>
+  <div class="sub">Acesse sua conta ou crie seu cadastro.</div>
+
+  <div class="tabs">
+    <button class="tab active" type="button" data-tab="login">Login</button>
+    <button class="tab" type="button" data-tab="cadastro">Cadastre-se</button>
+  </div>
+
+  <form class="panel active" id="loginForm">
+    <label>E-mail<input id="loginEmail" type="text" autocomplete="username" placeholder="seuemail@exemplo.com"></label>
+    <label>Senha<div class="passWrap"><input id="loginSenha" type="password" autocomplete="current-password" placeholder="Digite sua senha"><button class="togglePass" type="button" data-pass="loginSenha" aria-label="Mostrar senha">👁</button></div></label>
+    <button id="loginBtn" class="btn" type="submit">ENTRAR</button>
+    <button class="linkbtn" id="forgotOpen" type="button">Esqueci minha senha</button>
+    <div id="loginMsg" class="msg"></div>
+
+    <div class="resetBox" id="verifyBox">
+      <label>Reenviar verificação<input id="verifyEmail" type="email" autocomplete="email" placeholder="seuemail@exemplo.com"></label>
+      <button id="verifyBtn" class="btn secondary" type="button">REENVIAR LINK DE VERIFICAÇÃO</button>
+      <div id="verifyMsg" class="msg"></div>
+      <div id="devVerifyLink" class="resetLink"></div>
+    </div>
+
+    <div class="resetBox" id="forgotBox">
+      <label>E-mail cadastrado<input id="forgotEmail" type="email" autocomplete="email" placeholder="seuemail@exemplo.com"></label>
+      <button id="forgotBtn" class="btn secondary" type="button">ENVIAR INSTRUÇÕES</button>
+      <div id="forgotMsg" class="msg"></div>
+      <div id="devResetLink" class="resetLink"></div>
+    </div>
+
+    <div class="resetBox" id="resetBox">
+      <label>Nova senha<input id="resetSenha" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras e números"></label>
+      <label>Confirme a nova senha<input id="resetConfirma" type="password" autocomplete="new-password" placeholder="Digite novamente"></label>
+      <button id="resetBtn" class="btn secondary" type="button">REDEFINIR SENHA</button>
+      <div id="resetMsg" class="msg"></div>
+    </div>
+  </form>
+
+  <form class="panel" id="cadastroForm">
+    <label>Nome completo<input id="cadNome" autocomplete="name" placeholder="Seu nome completo"></label>
+    <label>E-mail<input id="cadEmail" type="email" autocomplete="email" placeholder="seuemail@exemplo.com"></label>
+    <label>Telefone com DDD<input id="cadTelefone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="(11) 99999-9999"></label>
+    <label>Senha<div class="passWrap"><input id="cadSenha" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras e números"><button class="togglePass" type="button" data-pass="cadSenha" aria-label="Mostrar senha">👁</button></div></label>
+    <label>Confirme a senha<div class="passWrap"><input id="cadConfirma" type="password" autocomplete="new-password" placeholder="Digite a senha novamente"><button class="togglePass" type="button" data-pass="cadConfirma" aria-label="Mostrar senha">👁</button></div></label>
+    <div class="rules">A senha precisa ter pelo menos 8 caracteres, com letras e números.</div>
+    <label class="check"><input id="cadTermos" type="checkbox"> <span>Li e aceito os <a href="/termos-de-uso" target="_blank" rel="noopener">Termos de Uso</a>, a <a href="/politica-de-privacidade" target="_blank" rel="noopener">Política de Privacidade</a> e a <a href="/politica-de-cookies" target="_blank" rel="noopener">Política de Cookies</a>.</span></label>
+    <label class="check"><input id="cadMaior18" type="checkbox"> <span>Declaro que sou maior de 18 anos e estou ciente de que o Painel Aviator do Jhow é apenas uma ferramenta estatística, sem garantia de ganhos.</span></label>
+    <button id="cadBtn" class="btn secondary" type="submit">CRIAR MINHA CONTA</button>
+    <div id="cadMsg" class="msg"></div>
+    <div class="small">Após criar o cadastro, você volta para o login e entra com seu e-mail e senha.</div>
+  </form>
+
+  <div class="legalFooter">
+    Ao entrar ou criar conta, você concorda com os documentos legais da plataforma.<br>
+    <a href="/termos-de-uso" target="_blank" rel="noopener">Termos de Uso</a> ·
+    <a href="/politica-de-privacidade" target="_blank" rel="noopener">Privacidade</a> ·
+    <a href="/politica-de-cookies" target="_blank" rel="noopener">Cookies</a> ·
+    <a href="/aviso-legal" target="_blank" rel="noopener">Aviso Legal</a> ·
+    <a href="/faq" target="_blank" rel="noopener">FAQ</a>
+  </div>
+</main>
+<script>
+'use strict';
+const tabs=[...document.querySelectorAll('.tab')];
+const panels={login:document.getElementById('loginForm'),cadastro:document.getElementById('cadastroForm')};
+function showTab(name){tabs.forEach(b=>b.classList.toggle('active',b.dataset.tab===name));Object.entries(panels).forEach(([k,p])=>p.classList.toggle('active',k===name));}
+tabs.forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+
+function maskTelefoneFixoBR(value){
+  const digitos=String(value||'').replace(/\D/g,'').slice(0,11);
+  if(digitos.length<=2)return digitos.length ? '('+digitos : '';
+  if(digitos.length<=7)return '('+digitos.slice(0,2)+') '+digitos.slice(2);
+  return '('+digitos.slice(0,2)+') '+digitos.slice(2,7)+'-'+digitos.slice(7);
+}
+const cadTelefone=document.getElementById('cadTelefone');
+cadTelefone.addEventListener('input',()=>{cadTelefone.value=maskTelefoneFixoBR(cadTelefone.value);});
+document.querySelectorAll('.togglePass').forEach(btn=>btn.addEventListener('click',()=>{
+  const input=document.getElementById(btn.dataset.pass||'');
+  if(!input)return;
+  const showing=input.type==='text';
+  input.type=showing?'password':'text';
+  btn.textContent=showing?'👁':'🙈';
+  btn.setAttribute('aria-label',showing?'Mostrar senha':'Ocultar senha');
+}));
+
+const qs=new URLSearchParams(location.search);
+const loginMsgQS=document.getElementById('loginMsg');
+if(qs.get('email_verified')==='1'){
+  loginMsgQS.classList.add('ok');loginMsgQS.textContent='E-mail confirmado com sucesso. Faça login.';
+  history.replaceState(null,'','/login');
+}else if(qs.get('email_verified')==='0'){
+  loginMsgQS.textContent='Link de verificação inválido ou expirado. Reenvie a verificação.';
+  document.getElementById('verifyBox')?.classList.add('active');
+  history.replaceState(null,'','/login');
+}
+
+const verifyBox=document.getElementById('verifyBox'),verifyEmail=document.getElementById('verifyEmail'),verifyBtn=document.getElementById('verifyBtn'),verifyMsg=document.getElementById('verifyMsg'),devVerifyLink=document.getElementById('devVerifyLink');
+const VERIFY_COOLDOWN_SECONDS=60;
+let verifyCooldownTimer=null;
+function verifyCooldownKey(){
+  const email=(verifyEmail.value||document.getElementById('loginEmail').value||'').trim().toLowerCase();
+  return 'painel_aviator_verify_cooldown_'+email;
+}
+function getVerifyCooldownLeft(){
+  const until=parseInt(localStorage.getItem(verifyCooldownKey())||'0',10);
+  return Math.max(0,Math.ceil((until-Date.now())/1000));
+}
+function renderVerifyCooldown(){
+  const left=getVerifyCooldownLeft();
+  if(left>0){
+    verifyBtn.disabled=true;
+    verifyBtn.textContent='REENVIAR EM '+left+'s';
+  }else{
+    verifyBtn.disabled=false;
+    verifyBtn.textContent='REENVIAR LINK DE VERIFICAÇÃO';
+    if(verifyCooldownTimer){clearInterval(verifyCooldownTimer);verifyCooldownTimer=null;}
+  }
+}
+function startVerifyCooldown(seconds=VERIFY_COOLDOWN_SECONDS){
+  localStorage.setItem(verifyCooldownKey(),String(Date.now()+seconds*1000));
+  if(verifyCooldownTimer){clearInterval(verifyCooldownTimer);}
+  renderVerifyCooldown();
+  verifyCooldownTimer=setInterval(renderVerifyCooldown,1000);
+}
+verifyEmail.addEventListener('input',renderVerifyCooldown);
+document.getElementById('loginEmail').addEventListener('input',renderVerifyCooldown);
+renderVerifyCooldown();
+verifyBtn.addEventListener('click',async()=>{
+  if(getVerifyCooldownLeft()>0){renderVerifyCooldown();return;}
+  verifyMsg.textContent='';verifyMsg.classList.remove('ok');devVerifyLink.textContent='';verifyBtn.disabled=true;verifyBtn.textContent='ENVIANDO...';
+  try{
+    const email=(verifyEmail.value||document.getElementById('loginEmail').value||'').trim();
+    const res=await fetch('/api/auth/email/resend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.detail||'Não foi possível reenviar a verificação.');
+    verifyMsg.classList.add('ok');verifyMsg.textContent=data.message||'Verifique seu e-mail.';
+    if(data.verification_url){devVerifyLink.innerHTML='Teste sem e-mail integrado: <a style="color:#93c5fd" href="'+data.verification_url+'">abrir link temporário</a>';}
+    startVerifyCooldown();
+  }catch(err){verifyMsg.textContent=err.message||'Erro ao reenviar verificação.';renderVerifyCooldown();}
+});
+
+const loginForm=document.getElementById('loginForm'),loginMsg=document.getElementById('loginMsg'),loginBtn=document.getElementById('loginBtn');
+loginForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  loginMsg.textContent='';loginMsg.classList.remove('ok');loginBtn.disabled=true;loginBtn.textContent='ENTRANDO...';
+  try{
+    const usuario=document.getElementById('loginEmail').value.trim();
+    const senha=document.getElementById('loginSenha').value;
+    const next=new URLSearchParams(location.search).get('next')||'';
+    const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario,senha,next})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.detail||'Login recusado.');
+    location.href=data.redirect||'/';
+  }catch(err){
+    loginMsg.textContent=err.message||'Erro ao entrar.';
+    if(String(loginMsg.textContent||'').toLowerCase().includes('confirme seu e-mail')){
+      verifyBox.classList.add('active');verifyEmail.value=document.getElementById('loginEmail').value.trim();
+    }
+  }
+  finally{loginBtn.disabled=false;loginBtn.textContent='ENTRAR';}
+});
+
+
+const forgotOpen=document.getElementById('forgotOpen'),forgotBox=document.getElementById('forgotBox'),forgotEmail=document.getElementById('forgotEmail'),forgotBtn=document.getElementById('forgotBtn'),forgotMsg=document.getElementById('forgotMsg'),devResetLink=document.getElementById('devResetLink');
+const resetBox=document.getElementById('resetBox'),resetBtn=document.getElementById('resetBtn'),resetMsg=document.getElementById('resetMsg');
+let resetToken=new URLSearchParams(location.search).get('reset_token')||'';
+function openResetBox(token){resetToken=token||resetToken;forgotBox.classList.remove('active');resetBox.classList.add('active');loginMsg.textContent='';}
+if(resetToken){openResetBox(resetToken);}
+forgotOpen.addEventListener('click',()=>{resetBox.classList.remove('active');forgotBox.classList.toggle('active');forgotMsg.textContent='';devResetLink.textContent='';forgotEmail.value=forgotEmail.value||document.getElementById('loginEmail').value.trim();});
+forgotBtn.addEventListener('click',async()=>{
+  forgotMsg.textContent='';forgotMsg.classList.remove('ok');devResetLink.textContent='';forgotBtn.disabled=true;forgotBtn.textContent='ENVIANDO...';
+  try{
+    const email=forgotEmail.value.trim();
+    const res=await fetch('/api/auth/password/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.detail||'Não foi possível solicitar recuperação.');
+    forgotMsg.classList.add('ok');forgotMsg.textContent=data.message||'Verifique as instruções para redefinir sua senha.';
+    if(data.reset_url){
+      devResetLink.innerHTML='Teste sem e-mail integrado: <a style="color:#93c5fd" href="'+data.reset_url+'">abrir link temporário</a>';
+    }
+  }catch(err){forgotMsg.textContent=err.message||'Erro ao solicitar recuperação.';}
+  finally{forgotBtn.disabled=false;forgotBtn.textContent='ENVIAR INSTRUÇÕES';}
+});
+resetBtn.addEventListener('click',async()=>{
+  resetMsg.textContent='';resetMsg.classList.remove('ok');resetBtn.disabled=true;resetBtn.textContent='SALVANDO...';
+  try{
+    const payload={token:resetToken,senha:document.getElementById('resetSenha').value,confirma_senha:document.getElementById('resetConfirma').value};
+    const res=await fetch('/api/auth/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.detail||'Não foi possível redefinir a senha.');
+    resetMsg.classList.add('ok');resetMsg.textContent='Senha redefinida com sucesso. Faça login.';
+    document.getElementById('loginSenha').value='';
+    history.replaceState(null,'','/login');
+    setTimeout(()=>{resetBox.classList.remove('active');loginMsg.classList.add('ok');loginMsg.textContent='Senha redefinida. Entre com sua nova senha.';},900);
+  }catch(err){resetMsg.textContent=err.message||'Erro ao redefinir senha.';}
+  finally{resetBtn.disabled=false;resetBtn.textContent='REDEFINIR SENHA';}
+});
+
+const cadForm=document.getElementById('cadastroForm'),cadMsg=document.getElementById('cadMsg'),cadBtn=document.getElementById('cadBtn');
+cadForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  cadMsg.textContent='';cadMsg.classList.remove('ok');cadBtn.disabled=true;cadBtn.textContent='CRIANDO...';
+  try{
+    if(!document.getElementById('cadTermos').checked){throw new Error('Você precisa aceitar os Termos de Uso, a Política de Privacidade e a Política de Cookies.');}
+    if(!document.getElementById('cadMaior18').checked){throw new Error('Você precisa declarar que é maior de 18 anos.');}
+    const payload={
+      nome:document.getElementById('cadNome').value.trim(),
+      email:document.getElementById('cadEmail').value.trim(),
+      telefone:document.getElementById('cadTelefone').value.trim(),
+      senha:document.getElementById('cadSenha').value,
+      confirma_senha:document.getElementById('cadConfirma').value,
+      termos_aceitos:document.getElementById('cadTermos').checked,
+      maior_18_aceito:document.getElementById('cadMaior18').checked
+    };
+    const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.detail||'Não foi possível criar o cadastro.');
+    cadMsg.classList.add('ok');cadMsg.textContent=data.message||'Cadastro realizado. Confirme seu e-mail para liberar o acesso.';
+    document.getElementById('loginEmail').value=payload.email;
+    document.getElementById('verifyEmail').value=payload.email;
+    document.getElementById('loginSenha').value='';
+    if(data.verification_url){
+      cadMsg.innerHTML='Cadastro realizado. Confirme seu e-mail para liberar o acesso.<br><a style="color:#93c5fd;font-weight:900" href="'+data.verification_url+'">Abrir link de verificação temporário</a>';
+    }
+    cadForm.reset();
+    setTimeout(()=>{showTab('login');document.getElementById('verifyBox').classList.add('active');loginMsg.classList.add('ok');loginMsg.textContent='Cadastro realizado. Confirme seu e-mail antes do login.';startVerifyCooldown();},900);
+  }catch(err){cadMsg.textContent=err.message||'Erro ao cadastrar.';}
+  finally{cadBtn.disabled=false;cadBtn.textContent='CRIAR MINHA CONTA';}
+});
+</script>
+</body>
+</html>

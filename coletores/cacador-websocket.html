@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Caçador de WebSocket - Painel Aviator</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0b1220;color:#e2e8f0;max-width:700px;margin:40px auto;padding:20px}
+h1{color:#22d3ee}
+h2{color:#f59e0b;margin-top:30px}
+code{background:#1e293b;padding:2px 8px;border-radius:4px;color:#86efac}
+pre{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:15px;overflow-x:auto;font-size:12px}
+.step{background:#1e3a5f;border-left:4px solid #60a5fa;padding:12px;margin:10px 0;border-radius:4px}
+.btn{display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:10px 0;cursor:pointer;border:0}
+.copy{user-select:all}
+</style>
+</head>
+<body>
+<h1>Caçador de URL WebSocket</h1>
+<p>Use este script para capturar a URL do WebSocket de qualquer casa de aposta com Aviator.</p>
+
+<div class="step">
+<h3>Passo 1: Copie o script abaixo</h3>
+<pre class="copy" id="script">
+// COLE ESTE CÓDIGO NO CONSOLE (F12) DO NAVEGADOR
+// enquanto estiver na página do jogo Aviator
+
+(function() {
+    const urls = new Set();
+    const OrigWS = window.WebSocket;
+    
+    window.WebSocket = function(url, protocols) {
+        if (!urls.has(url)) {
+            urls.add(url);
+            console.log('%c🔗 WEBSOCKET CAPTURADO!%c',
+                'color:#22c55e;font-size:18px;font-weight:bold', '');
+            console.log('%c' + url + '%c',
+                'color:#ff2f92;font-size:16px', '');
+            console.log('%cCopie a URL acima para o config.json%c',
+                'color:#f59e0b;font-size:14px', '');
+            console.log('');
+        }
+        return new OrigWS(url, protocols);
+    };
+    window.WebSocket.prototype = OrigWS.prototype;
+    
+    console.log('%c✅ Monitor ativo! Recarregue a página (F5) do jogo.%c',
+        'color:#22d3ee;font-size:16px;font-weight:bold', '');
+    console.log('%cQuando o jogo conectar, a URL aparecerá aqui.%c',
+        'color:#94a3b8', '');
+})();
+</pre>
+<button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('script').textContent);this.textContent='COPIADO! ✅';setTimeout(()=>this.textContent='COPIAR SCRIPT',2000)">COPIAR SCRIPT</button>
+</div>
+
+<div class="step">
+<h3>Passo 2: Abra o site da casa de aposta</h3>
+<p>Ex: SorteNaBet, BravoBet, Blaze, Stake, Betano, etc.<br>
+Navegue até o jogo <b>Aviator</b>.</p>
+</div>
+
+<div class="step">
+<h3>Passo 3: Pressione F12 e cole o script</h3>
+<p>Aperte <b>F12</b> → aba <b>Console</b><br>
+Cole o script copiado e pressione <b>Enter</b></p>
+</div>
+
+<div class="step">
+<h3>Passo 4: Recarregue a página do jogo</h3>
+<p>Aperte <b>F5</b> para recarregar.<br>
+O script vai capturar a URL do WebSocket e mostrar no console em <b style="color:#ff2f92">rosa</b>.</p>
+</div>
+
+<div class="step">
+<h3>Passo 5: Configure o coletor</h3>
+<p>Abra o arquivo <code>C:\PROJETOS\painel-aviator-jhow\coletores\config.json</code></p>
+<p>Cole a URL capturada no campo <code>"ws_url"</code> e mude <code>"ativo"</code> para <code>true</code>:</p>
+<pre>
+{
+  "casas": [
+    {
+      "nome": "NOME DA CASA AVIATOR",
+      "ws_url": "wss://..." ← COLE A URL AQUI,
+      "provider": "auto",
+      "ativo": true              ← MUDE PARA true
+    }
+  ]
+}
+</pre>
+</div>
+
+<div class="step">
+<h3>Passo 6: Reinicie o painel</h3>
+<p>Pare o servidor (Ctrl+C) e execute novamente:</p>
+<pre>C:\PROJETOS\painel-aviator-jhow\run.bat</pre>
+<p>O coletor vai conectar direto no WebSocket e começar a salvar todas as rodadas!</p>
+</div>
+
+<h2>Método Alternativo (DevTools)</h2>
+<div class="step">
+<p><b>1.</b> F12 → aba <b>Network</b><br>
+<b>2.</b> Clique no filtro <b>WS</b> (WebSocket)<br>
+<b>3.</b> Recarregue a página (F5)<br>
+<b>4.</b> Clique na conexão que aparece → copie a <b>Request URL</b><br>
+<b>5.</b> Cole no config.json</p>
+</div>
+
+</body>
+</html>
