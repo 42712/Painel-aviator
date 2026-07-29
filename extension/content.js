@@ -111,58 +111,53 @@ function formatarTimestamp(isoStr) {
 let ultimoEnvioWS = 0;
 
 function conectarWS() {
-    try {
-        const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
-        ws.onopen = () => console.log("✅ WS RELAY conectado - aguardando sinais...");
-        ws.onmessage = (e) => {
-            try {
-                const msg = JSON.parse(e.data);
-                if (msg.type === "connected") { console.log("📡 RELAY: " + msg.message); return; }
-                if (msg.type !== "signal") return;
-
-                const mult = parseFloat(msg.data?.valor);
-                if (isNaN(mult) || mult <= 0 || mult < 1) return;
-
-                const casaFonte = detectarCasa();
-                const rodada = rodadaCache || extrairRodada() || `r-${Date.now()}`;
-                const timestamp = msg.data?.createdAt 
-                    ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
-                    : new Date().toLocaleTimeString('pt-BR');
-
-                console.log(`🎯 SINAL: ${mult}x | casa=${casaFonte} | rodada=${rodada}`);
-                enviarVela(mult, rodada, timestamp, casaFonte);
-                ultimoEnvioWS = Date.now();
-            } catch (ex) { console.error("WS parse error:", ex); }
-        };
-        ws.onclose = () => {
-            console.log("⚠ WS RELAY fechado, reconectando em 5s...");
-            setTimeout(conectarWS, 5000);
-        };
-        ws.onerror = (err) => console.log("⚠ WS RELAY erro, tentando reconectar...");
-    } catch (e) {
-        console.log("⚠ WS RELAY falhou, retry em 5s...");
-        setTimeout(conectarWS, 5000);
-    }
+    console.log("📡 Usando interceptacao do jogo (main-world)...");
 }
 conectarWS();
 
-// ===== DOM SCANNER (fallback p/ quando WS falha) =====
+// ===== ESCUTA DADOS DO JOGO VIA MAIN-WORLD =====
+window.addEventListener('aviator-ws-data', (ev) => {
+    try {
+        const raw = typeof ev.detail === 'string' ? ev.detail : JSON.stringify(ev.detail);
+        // Procura crash_point no JSON da mensagem
+        let data = null;
+        try { data = JSON.parse(raw); } catch(e) {}
+        
+        if (data) {
+            // Formato Spribe: array de eventos
+            const items = Array.isArray(data) ? data : [data];
+            for (const item of items) {
+                if (item.type === 'crash' && item.crash_point && item.round_id) {
+                    const mult = parseFloat(item.crash_point);
+                    if (mult >= 1) {
+                        const casa = detectarCasa();
+                        const ts = new Date().toLocaleTimeString('pt-BR');
+                        console.log(`🎯 CRASH: ${mult}x | round=${item.round_id} | casa=${casa}`);
+                        enviarVela(mult, item.round_id, ts, casa);
+                    }
+                }
+            }
+        }
+    } catch(e) {}
+});
+
+// ===== FALLBACK: DOM SCANNER =====
 let ultPayout = 0;
 let maxPayoutRodada = 0;
 
 setInterval(() => {
-    if (Date.now() - ultimoEnvioWS <= 60000) return;
-
-    const el = document.querySelector('.payout');
+    const el = document.querySelector('.payout, .bubble-multiplier, [class*="multiplier"], [class*="payout"]');
     if (!el) return;
     const m = el.textContent.match(/(\d+\.?\d*)x/);
     if (!m) return;
+
     const mult = parseFloat(m[1]);
     if (isNaN(mult)) return;
 
     if (ultPayout >= 1.01 && mult <= 1.01 && maxPayoutRodada >= 1.01) {
         const rodada = rodadaCache || extrairRodada() || `dom-${Date.now()}`;
-        enviarVela(maxPayoutRodada, rodada, null, "dom");
+        console.log(`🎯 DOM: ${maxPayoutRodada}x rodada=${rodada}`);
+        enviarVela(maxPayoutRodada, rodada, null, detectarCasa());
     }
     if (mult > maxPayoutRodada) maxPayoutRodada = mult;
     ultPayout = mult;
