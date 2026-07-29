@@ -854,7 +854,7 @@ function invalidarCacheMM(){ _mmCache.ptsLen = -1; }
 
 // Servidor
 const urlParams=new URLSearchParams(window.location.search);const painelPadrao=parseInt(urlParams.get('painel'))||1;
-const srv = { url:'http://localhost:5000', get:'/api/rounds', post:'/api/rounds', painel:painelPadrao, poll:1500 };
+const srv = { url:'', get:'/api/rounds', post:'/api/rounds', painel:painelPadrao, poll:1500 };
 let pollingTimer = null, simInt = null, modoFonte = 'online';
 let ultimaChave = null;
 
