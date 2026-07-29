@@ -344,27 +344,26 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .min-cell .mn{font-size:11px;font-weight:700;color:#666;line-height:1;margin-bottom:1px}
 .min-cell .mq{font-size:18px;font-weight:900;line-height:1}
 .min-cell .ml{font-size:8px;color:#555;line-height:1;margin-top:1px}
-/* cores de pagamento - padrao Aviator */
+/* cores de pagamento - padrao Aviator (5x mais forte) */
 .min-cell.mz .mq{color:#444}.min-cell.mz .ml{display:none}
-.min-cell.mg{background:rgba(244,114,182,.2);border-color:rgba(244,114,182,.45)}.min-cell.mg .mq{color:#f472b6}.min-cell.mg .mn{color:#f9a8d4}
-.min-cell.mm{background:rgba(168,85,247,.2);border-color:rgba(168,85,247,.45)}.min-cell.mm .mq{color:#a855f7}.min-cell.mm .mn{color:#c084fc}
-.min-cell.mf{background:rgba(6,182,212,.2);border-color:rgba(6,182,212,.4)}.min-cell.mf .mq{color:#06b6d4}.min-cell.mf .mn{color:#67e8f9}
-.min-legenda .dg{background:#f472b6}.min-legenda .dm{background:#a855f7}.min-legenda .df{background:#06b6d4}
+.min-cell.mg{background:rgba(244,114,182,.4);border-color:rgba(244,114,182,.7);box-shadow:0 0 12px rgba(244,114,182,.25)}.min-cell.mg .mq{color:#fda4af;text-shadow:0 0 10px rgba(244,114,182,.5)}.min-cell.mg .mn{color:#fbcfe8}
+.min-cell.mm{background:rgba(168,85,247,.4);border-color:rgba(168,85,247,.7);box-shadow:0 0 12px rgba(168,85,247,.25)}.min-cell.mm .mq{color:#d8b4fe;text-shadow:0 0 10px rgba(168,85,247,.5)}.min-cell.mm .mn{color:#e9d5ff}
+.min-cell.mf{background:rgba(6,182,212,.4);border-color:rgba(6,182,212,.65);box-shadow:0 0 12px rgba(6,182,212,.2)}.min-cell.mf .mq{color:#67e8f9;text-shadow:0 0 10px rgba(6,182,212,.5)}.min-cell.mf .mn{color:#a5f3fc}
+.min-legenda .dg{background:#f472b6;box-shadow:0 0 6px rgba(244,114,182,.6)}.min-legenda .dm{background:#a855f7;box-shadow:0 0 6px rgba(168,85,247,.6)}.min-legenda .df{background:#06b6d4;box-shadow:0 0 6px rgba(6,182,212,.6)}
 .min-legenda{display:flex;gap:16px;justify-content:center;padding:4px 0;font-size:9px;color:var(--txt2);flex-wrap:wrap}
 .min-legenda span{display:flex;align-items:center;gap:4px}
 .min-legenda .dot{width:8px;height:8px;border-radius:2px}
 /* proximos minutos */
-.min-prox{border-top:1px solid rgba(168,85,247,.12);padding:12px 4px 0;margin-top:4px}
-.min-prox-title{font-size:11px;font-weight:700;color:#c4b5fd;margin-bottom:8px;text-align:center}
-.min-prox-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;max-width:340px;margin:0 auto}
+.min-prox{border-top:1px solid rgba(168,85,247,.15);padding:14px 4px 4px;margin-top:12px}
+.min-prox-title{font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:10px;text-align:center}
+.min-prox-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;max-width:620px;margin:0 auto}
 .min-prox-cell{border-radius:10px;padding:8px 4px;text-align:center;border:1px solid rgba(255,255,255,.08);background:#15151f;transition:all .15s}
 .min-prox-cell:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4)}
-.min-prox-cell .pxm{font-size:11px;font-weight:800;color:#fff;line-height:1}
-.min-prox-cell .pxs{font-size:8px;color:var(--txt2);margin-top:2px;line-height:1}
-.min-prox-cell .pxr{font-size:14px;font-weight:900;margin-top:3px;line-height:1}
-.min-prox-cell.pg{border-color:rgba(244,114,182,.4);background:rgba(244,114,182,.1)}.min-prox-cell.pg .pxr{color:#f472b6}
-.min-prox-cell.pm{border-color:rgba(168,85,247,.4);background:rgba(168,85,247,.1)}.min-prox-cell.pm .pxr{color:#a855f7}
-.min-prox-cell.pf{border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.1)}.min-prox-cell.pf .pxr{color:#06b6d4}
+.min-prox-cell .pxm{font-size:12px;font-weight:800;color:#fff;line-height:1}
+.min-prox-cell .pxr{font-size:10px;font-weight:700;margin-top:4px;line-height:1}
+.min-prox-cell.pg{border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.18);box-shadow:0 0 10px rgba(244,114,182,.2)}.min-prox-cell.pg .pxr{color:#fda4af}
+.min-prox-cell.pm{border-color:rgba(168,85,247,.5);background:rgba(168,85,247,.18);box-shadow:0 0 10px rgba(168,85,247,.2)}.min-prox-cell.pm .pxr{color:#d8b4fe}
+.min-prox-cell.pf{border-color:rgba(6,182,212,.5);background:rgba(6,182,212,.18);box-shadow:0 0 10px rgba(6,182,212,.15)}.min-prox-cell.pf .pxr{color:#67e8f9}
 .min-resumo{text-align:center;font-size:10px;color:var(--txt2);padding:2px 0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
