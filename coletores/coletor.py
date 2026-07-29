@@ -164,9 +164,39 @@ def parse_pragmatic(message, casa_nome):
         pass
     return None
 
+def parse_appbackend(message, casa_nome):
+    """Parser para o relay publico apiglobal.appbackend.tech"""
+    try:
+        data = json.loads(message)
+        if data.get("type") != "signal":
+            return None
+        d = data.get("data", {})
+        valor = d.get("valor")
+        if not valor:
+            return None
+        multiplier = float(valor)
+        if multiplier < 1.0:
+            return None
+        round_id = data.get("timestamp", "").replace("-", "").replace(":", "").replace("T", "").replace(".", "")[:14]
+        ts = d.get("createdAt", "")
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except:
+            dt = datetime.now()
+        return {
+            "casa": casa_nome,
+            "round_id": str(round_id),
+            "multiplier": round(multiplier, 2),
+            "time_label": dt.strftime('%H:%M:%S'),
+            "captured_at": dt.strftime('%Y-%m-%dT%H:%M:%S')
+        }
+    except:
+        pass
+    return None
+
 def parse_auto(message, casa_nome):
     """Auto-detecta o formato da mensagem e extrai os dados"""
-    for parser in [parse_spribe, parse_pragmatic]:
+    for parser in [parse_appbackend, parse_spribe, parse_pragmatic]:
         result = parser(message, casa_nome)
         if result:
             return result
@@ -208,18 +238,18 @@ class CasaColetor:
                     on_close=self._on_close
                 )
                 self.ws.run_forever(
-                    ping_interval=30,
-                    ping_timeout=10,
+                    ping_interval=45,
+                    ping_timeout=15,
                     reconnect=0
                 )
             except Exception as e:
                 logger.error(f"[{self.nome}] Erro fatal: {e}")
 
             if self.running:
-                delay = min(self.reconnect_delay, 60)
+                delay = min(self.reconnect_delay, 15)
                 logger.info(f"[{self.nome}] Reconectando em {delay}s...")
                 time.sleep(delay)
-                self.reconnect_delay = min(self.reconnect_delay * 2, 60)
+                self.reconnect_delay = min(self.reconnect_delay * 2, 15)
 
     def _on_open(self, ws):
         self.reconnect_delay = 5
