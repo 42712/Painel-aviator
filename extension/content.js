@@ -6,13 +6,17 @@ window.addEventListener('aviator-ws-data', (ev) => {
         try { data = JSON.parse(raw); } catch(e) { return; }
         if (!data) return;
         
+        // DEBUG: mostra todas as mensagens recebidas
+        console.log('📦 WS DATA:', JSON.stringify(data).substring(0, 300));
+        
         const items = Array.isArray(data) ? data : [data];
         for (const item of items) {
+            if (!item || typeof item !== 'object') continue;
+            
             // Multiplos formatos de crash do Spribe
             const tipo = item.type || item.t || '';
             const crash = item.crash_point || item.crashPoint || item.multiplier || item.valor;
             const rid = item.round_id || item.roundId || item.id;
-            // Timestamp do jogo ou hora local
             const its = item.timestamp || item.createdAt || item.time || '';
             
             if ((tipo === 'crash' || tipo === 'result') && crash && rid) {
@@ -24,12 +28,15 @@ window.addEventListener('aviator-ws-data', (ev) => {
                     }
                     if (!ts) ts = new Date().toLocaleTimeString('pt-BR');
                     window.__ultimaRodadaReal = String(rid);
-                    console.log('🎯 JOGO WS: ' + mult + 'x | round_id=' + rid + ' | ' + ts);
+                    console.log('🎯 ENVIANDO: ' + mult + 'x | round=' + rid + ' | ' + ts);
                     enviarVela(mult, rid, ts, "spribe");
                 }
+            } else if (item.round_id || item.roundId || item.type) {
+                // Mostra mensagens que tem round_id mas formato diferente
+                console.log('🔍 MSG com round_id mas formato diferente:', JSON.stringify(item).substring(0, 200));
             }
         }
-    } catch(e) {}
+    } catch(e) { console.error('Erro WS data:', e); }
 });
 
 // ===== CAPTURA RODADA DO DOM (fairness modal + outros) =====
