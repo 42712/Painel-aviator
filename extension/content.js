@@ -22,8 +22,8 @@ function detectarCasa() {
         'vera.bet.br': 'Vera',
     };
     const nome = mapa[host] || (host.split('.')[0]);
-    const aviador = detectarAviator();
-    return nome + ' Aviator ' + aviador;
+    const av = detectarAviator();
+    return nome + ' A' + av;
 }
 
 function detectarAviator() {
