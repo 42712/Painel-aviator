@@ -2,14 +2,9 @@
 const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
 
 function detectarCasa() {
-    // Usa SEMPRE o dominio da pagina principal (ignora iframes do jogo)
     let host;
     try { host = window.top.location.hostname.replace('www.',''); } catch(e) {
         host = window.location.hostname.replace('www.','');
-    }
-    // Ignora dominios internos do Spribe
-    if (host.includes('spribegaming') || host.includes('cloudfront') || host === 'secure' || host === 'sst' || host === 'aviator-next') {
-        return null; // nao envia de iframes do jogo
     }
     const mapa = {
         'sortenabet.bet.br': 'SorteNaBet',
@@ -20,8 +15,10 @@ function detectarCasa() {
         'apostamax.bet.br': 'ApostaMax',
         'sebet67.com': 'Sebet',
         'vera.bet.br': 'Vera',
+        'iaeagle.pro': 'PixReals',
     };
-    const nome = mapa[host] || (host.split('.')[0]);
+    const nome = mapa[host];
+    if (!nome) return null; // so envia de sites conhecidos
     const av = detectarAviator();
     return nome + ' A' + av;
 }
