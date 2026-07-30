@@ -13,7 +13,9 @@ function detectarCasa() {
         'sebet67.com': 'Sebet',
         'vera.bet.br': 'Vera',
     };
-    return mapa[host] || (host.split('.')[0]);
+    const nome = mapa[host] || (host.split('.')[0]);
+    const aviador = detectarAviator();
+    return nome + ' Aviator ' + aviador;
 }
 
 function detectarAviator() {
