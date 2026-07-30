@@ -502,12 +502,42 @@ def LOGO_AVIATOR():
 def assinatura_expirada():
     return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Assinatura Expirada</title></head><body style="background:#030814;color:#f8fafc;font-family:Arial;text-align:center;padding:50px"><h1>Sua assinatura expirou</h1><p>Entre em contato para renovar seu acesso.</p><a href="/login" style="color:#93c5fd">Voltar para o login</a></body></html>'
 
+# --- Webhook da extensao (recebe velas em tempo real) ---
+@app.route('/api/nova-vela', methods=['POST'])
+def api_nova_vela():
+    try:
+        dados = request.get_json()
+        if not dados:
+            return jsonify({"erro": "Dados invalidos"}), 400
+        mult = dados.get('multiplicador')
+        if not mult or float(mult) < 1.0:
+            return jsonify({"erro": "Multiplicador invalido"}), 400
+        casa = dados.get('fonte', 'Extensao')
+        rodada_id = str(dados.get('rodada', ''))
+        ts = dados.get('timestamp', '')
+        now = datetime.datetime.now()
+        captured_at = now.strftime('%Y-%m-%dT%H:%M:%S')
+        time_label = ts if ts else now.strftime('%H:%M:%S')
+        db = get_db()
+        existe = db.execute("SELECT id FROM rounds WHERE casa=? AND round_id=?",
+            (casa, rodada_id)).fetchone()
+        if not existe:
+            db.execute(
+                "INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) VALUES (?,?,?,?,?)",
+                (casa, rodada_id, round(float(mult), 2), time_label, captured_at)
+            )
+            db.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
 # --- Seed Data ---
 
 def seed_data():
     db = get_db()
-    db.execute("DELETE FROM rounds")
-    db.commit()
+    count = db.execute("SELECT COUNT(*) FROM rounds").fetchone()[0]
+    if count > 0:
+        return  # nao apaga dados existentes
 
     casas = [
         "SorteNaBet Grafico 01",
