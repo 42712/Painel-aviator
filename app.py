@@ -488,7 +488,7 @@ def vr5_v35_painel():
 
 @app.route('/markin')
 def markin_painel():
-    return render_template('markin.html')
+    return render_template('painel_vr5_v35.html')
 
 @app.route('/logo_aviator.png')
 def logo_aviator():
