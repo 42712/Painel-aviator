@@ -2171,7 +2171,7 @@ function draw(){
     }
 
     if(d.type==='hline'){
-      const hy=d.yVal!==undefined?sy(d.yVal):d.y;
+      const hy=d.y;
       ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(12,hy);ctx.lineTo(W-scaleW,hy);ctx.stroke();ctx.setLineDash([]);
       ctx.fillStyle=sc;ctx.font='7px JetBrains Mono,monospace';ctx.textAlign='left';
       ctx.fillText((d.yVal||yToV(hy)).toFixed(2)+'x',16,hy-3);
@@ -2396,7 +2396,7 @@ function hitDraw(pos){
   const _sc=getScale(getViewSub(),Wc,Hc);
   for(let i=drawings.length-1;i>=0;i--){
     const d=drawings[i];
-    if(d.type==='hline'){const hy=d.yVal!==undefined?_sc.sy(d.yVal):d.y;if(Math.abs(pos.y-hy)<10)return i;}
+    if(d.type==='hline'){const hy=d.y;if(Math.abs(pos.y-hy)<10)return i;}
     else if(d.type==='vline'&&Math.abs(pos.x-d.x)<10)return i;
     else if(d.type==='tline'||d.type==='arrow'){
       const dx=d.x2-d.x1,dy=d.y2-d.y1,len=Math.sqrt(dx*dx+dy*dy);
