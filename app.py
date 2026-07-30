@@ -571,13 +571,16 @@ def api_nova_vela():
         casa = dados.get('fonte', 'Extensao')
         rodada_id = str(dados.get('rodada', ''))
         ts = dados.get('timestamp', '')
+        now = datetime.datetime.now()
+        captured_at = now.strftime('%Y-%m-%dT%H:%M:%S')
+        time_label = ts if ts else now.strftime('%H:%M:%S')
         db = get_db()
         existe = db.execute("SELECT id FROM rounds WHERE casa=? AND round_id=?",
             (casa, rodada_id)).fetchone()
         if not existe:
             db.execute(
                 "INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) VALUES (?,?,?,?,?)",
-                (casa, rodada_id, round(float(mult), 2), ts, ts)
+                (casa, rodada_id, round(float(mult), 2), time_label, captured_at)
             )
             db.commit()
         return jsonify({"ok": True})
