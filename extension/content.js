@@ -2,7 +2,15 @@
 const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
 
 function detectarCasa() {
-    const host = window.location.hostname.replace('www.','');
+    // Usa SEMPRE o dominio da pagina principal (ignora iframes do jogo)
+    let host;
+    try { host = window.top.location.hostname.replace('www.',''); } catch(e) {
+        host = window.location.hostname.replace('www.','');
+    }
+    // Ignora dominios internos do Spribe
+    if (host.includes('spribegaming') || host.includes('cloudfront') || host === 'secure' || host === 'sst' || host === 'aviator-next') {
+        return null; // nao envia de iframes do jogo
+    }
     const mapa = {
         'sortenabet.bet.br': 'SorteNaBet',
         'betou.bet.br': 'Betou',
@@ -34,6 +42,7 @@ function enviarVela(mult, rodada, timestamp, origem) {
 
     const horario = timestamp || new Date().toLocaleTimeString('pt-BR');
     const casa = detectarCasa();
+    if (!casa) return; // ignora iframes do jogo Spribe
 
     fetch(API_URL, {
         method: 'POST',
@@ -88,9 +97,13 @@ setInterval(() => {
 function conectarWS() {
     try {
         const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
-        ws.onopen = () => console.log("📡 Relay conectado - casa: " + detectarCasa());
+        ws.onopen = () => {
+            if (!detectarCasa()) return; // nao conecta em iframes
+            console.log("📡 Relay conectado - casa: " + detectarCasa());
+        };
         ws.onmessage = (e) => {
             try {
+                if (!detectarCasa()) return; // ignora iframes
                 const msg = JSON.parse(e.data);
                 if (msg.type === "connected") { console.log("📡 " + msg.message); return; }
                 if (msg.type !== "signal") return;
