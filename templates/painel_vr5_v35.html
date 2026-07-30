@@ -5190,22 +5190,16 @@ function atualizarLabelCasa(nome){
 function trocarCasa(val) { 
   casaAtual = val;
   atualizarLabelCasa(val);
-  // Salva historico atual antes de trocar de casa
   salvarHistoricoLocal();
   if(window.pts) window.pts.length = 0;
   ultimaChave = null;
   viewOffset = 0;
-  // Reinicia polling com a nova casa
   if(pollingTimer){ clearInterval(pollingTimer); pollingTimer = null; }
   if(_pollRealTimer){ clearInterval(_pollRealTimer); _pollRealTimer = null; }
-  fetchRealData();
-  // Reinicia polling após carregar dados iniciais
-  setTimeout(()=>{
-    buscar(true);
-    iniciarPollingReal();
-    escanearUltimas();
-    atualizarAbaAtiva();
-  }, 1500);
+  buscar(true);
+  iniciarPollingReal();
+  escanearUltimas();
+  atualizarAbaAtiva();
 }
 function proximaCasa() {
   if(CASAS.length === 0) return;
