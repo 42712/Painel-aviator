@@ -1,11 +1,15 @@
 // MARKIN CAPTURADOR - Relay externo + DOM scanner
 const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
 
+// ===== DETECTA SE EH PAGINA PRINCIPAL (nao iframe) =====
+function isMainFrame() {
+    try { return window.self === window.top; } catch(e) { return false; }
+}
+
 function detectarCasa() {
-    let host;
-    try { host = window.top.location.hostname.replace('www.',''); } catch(e) {
-        host = window.location.hostname.replace('www.','');
-    }
+    if (!isMainFrame()) return null; // nunca envia de iframes
+    
+    const host = window.location.hostname.replace('www.','');
     const mapa = {
         'sortenabet.bet.br': 'SorteNaBet',
         'betou.bet.br': 'Betou',
@@ -18,7 +22,7 @@ function detectarCasa() {
         'iaeagle.pro': 'PixReals',
     };
     const nome = mapa[host];
-    if (!nome) return null; // so envia de sites conhecidos
+    if (!nome) return null;
     const av = detectarAviator();
     return nome + ' A' + av;
 }
