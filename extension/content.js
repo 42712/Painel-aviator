@@ -1,60 +1,67 @@
-// ===== FONTE 1: INTERCEPTACAO DO JOGO (main-world) - RODADA REAL =====
-window.addEventListener('aviator-ws-data', (ev) => {
-    try {
-        const raw = typeof ev.detail === 'string' ? ev.detail : JSON.stringify(ev.detail);
-        let data = null;
-        try { data = JSON.parse(raw); } catch(e) { return; }
-        if (!data) return;
-        
-        // DEBUG: mostra todas as mensagens recebidas
-        console.log('📦 WS DATA:', JSON.stringify(data).substring(0, 300));
-        
-        const items = Array.isArray(data) ? data : [data];
-        for (const item of items) {
-            if (!item || typeof item !== 'object') continue;
-            
-            // Multiplos formatos de crash do Spribe
-            const tipo = item.type || item.t || '';
-            const crash = item.crash_point || item.crashPoint || item.multiplier || item.valor;
-            const rid = item.round_id || item.roundId || item.id;
-            const its = item.timestamp || item.createdAt || item.time || '';
-            
-            if ((tipo === 'crash' || tipo === 'result') && crash && rid) {
-                const mult = parseFloat(crash);
-                if (mult >= 1) {
-                    let ts;
-                    if (its) {
-                        try { ts = new Date(its).toLocaleTimeString('pt-BR', {timeZone:'America/Sao_Paulo',hour12:false}); } catch(e){}
-                    }
-                    if (!ts) ts = new Date().toLocaleTimeString('pt-BR');
-                    window.__ultimaRodadaReal = String(rid);
-                    console.log('🎯 ENVIANDO: ' + mult + 'x | round=' + rid + ' | ' + ts);
-                    enviarVela(mult, rid, ts, "spribe");
-                }
-            } else if (item.round_id || item.roundId || item.type) {
-                // Mostra mensagens que tem round_id mas formato diferente
-                console.log('🔍 MSG com round_id mas formato diferente:', JSON.stringify(item).substring(0, 200));
-            }
-        }
-    } catch(e) { console.error('Erro WS data:', e); }
-});
+// MARKIN CAPTURADOR - Relay externo + DOM scanner
+const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
 
-// ===== CAPTURA RODADA DO DOM (fairness modal + outros) =====
+function detectarCasa() {
+    const host = window.location.hostname.replace('www.','');
+    const mapa = {
+        'sortenabet.bet.br': 'SorteNaBet',
+        'betou.bet.br': 'Betou',
+        'pixreals.com': 'PixReals',
+        'bravo.bet.br': 'BravoBet',
+        'betao.bet.br': 'Betao',
+        'apostamax.bet.br': 'ApostaMax',
+        'sebet67.com': 'Sebet',
+        'vera.bet.br': 'Vera',
+    };
+    return mapa[host] || (host.split('.')[0]);
+}
+
+function detectarAviator() {
+    return window.location.href.includes('aviator2') ? 2 : 1;
+}
+
+const enviadas = new Set();
+
+function enviarVela(mult, rodada, timestamp, origem) {
+    const multNum = parseFloat(mult);
+    if (isNaN(multNum) || multNum <= 0) return;
+    const painel = detectarAviator();
+    const chave = painel + '_' + rodada;
+    if (enviadas.has(chave)) return;
+    enviadas.add(chave);
+
+    const horario = timestamp || new Date().toLocaleTimeString('pt-BR');
+    const casa = detectarCasa();
+
+    fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            painel, multiplicador: multNum,
+            rodada: String(rodada), timestamp: horario,
+            soma: 0, fonte: casa
+        })
+    }).then(r => r.json()).then(d => {
+        if (d.ok) console.log('✅ [' + casa + ' AVIATOR ' + painel + '] ' + multNum + 'x rodada ' + rodada);
+    }).catch(() => {});
+}
+
+// ===== EXTRAIR RODADA DO DOM =====
 function extrairRodada() {
-    // 1. Span do fairness (da sua descoberta no TUTORIAL)
+    // 1. app-fairness modal
     const modalSpan = document.querySelector('app-fairness span.text-uppercase');
     if (modalSpan) {
         const match = modalSpan.textContent.match(/Rodada\s+(\d+)/i);
         if (match) return match[1];
     }
-    // 2. TreeWalker no documento principal
+    // 2. TreeWalker
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while ((node = walker.nextNode())) {
         const match = node.textContent.match(/Rodada\s+(\d+)/i);
         if (match) return match[1];
     }
-    // 3. Dentro de iframes (o jogo pode estar num iframe)
+    // 3. iframes
     for (const iframe of document.querySelectorAll('iframe')) {
         try {
             if (!iframe.contentDocument) continue;
@@ -66,16 +73,62 @@ function extrairRodada() {
             }
         } catch(e) {}
     }
-    // 4. round_id do WebSocket (cache)
-    if (window.__ultimaRodadaReal) return window.__ultimaRodadaReal;
-    // 5. Seletores genericos
-    const roundEl = document.querySelector('[class*="round" i], [data-round], game-round-id');
-    if (roundEl) return roundEl.getAttribute('data-round') || roundEl.textContent.trim();
     return null;
 }
 
-// Atualiza cache da rodada periodicamente
+let rodadaCache = null;
 setInterval(() => {
     const r = extrairRodada();
-    if (r) window.__ultimaRodadaReal = r;
+    if (r) rodadaCache = r;
 }, 300);
+
+// ===== RELAY EXTERNO (fonte principal) =====
+function conectarWS() {
+    try {
+        const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
+        ws.onopen = () => console.log("📡 Relay conectado - casa: " + detectarCasa());
+        ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === "connected") { console.log("📡 " + msg.message); return; }
+                if (msg.type !== "signal") return;
+                
+                const mult = parseFloat(msg.data?.valor);
+                if (isNaN(mult) || mult < 1) return;
+                
+                const rodada = rodadaCache || extrairRodada() || `r-${Date.now()}`;
+                const ts = msg.data?.createdAt
+                    ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+                    : new Date().toLocaleTimeString('pt-BR');
+                
+                console.log('🎯 SINAL: ' + mult + 'x | rodada=' + rodada);
+                enviarVela(mult, rodada, ts, "relay");
+            } catch(ex) {}
+        };
+        ws.onclose = () => { console.log("⚠ Relay fechado, reconectando..."); setTimeout(conectarWS, 5000); };
+        ws.onerror = () => {};
+    } catch(e) { setTimeout(conectarWS, 5000); }
+}
+conectarWS();
+
+// ===== DOM SCANNER (fallback) =====
+let ultPayout = 0, maxPayoutRodada = 0;
+setInterval(() => {
+    // Tenta varios seletores do Spribe
+    const el = document.querySelector('.payout, .bubble-multiplier, [class*="multiplier"], [class*="payout"]');
+    if (!el) return;
+    const m = el.textContent.match(/(\d+\.?\d*)x/);
+    if (!m) return;
+    const mult = parseFloat(m[1]);
+    if (isNaN(mult)) return;
+    
+    // Detecta fim da rodada: payout caiu pra 1.00x
+    if (ultPayout >= 1.01 && mult <= 1.01 && maxPayoutRodada >= 1.01) {
+        const rodada = rodadaCache || extrairRodada() || `dom-${Date.now()}`;
+        console.log('🎯 DOM: ' + maxPayoutRodada + 'x rodada=' + rodada);
+        enviarVela(maxPayoutRodada, rodada, null, "dom");
+        maxPayoutRodada = 0;
+    }
+    if (mult > maxPayoutRodada) maxPayoutRodada = mult;
+    ultPayout = mult;
+}, 1000);
