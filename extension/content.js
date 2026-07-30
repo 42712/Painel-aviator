@@ -1,59 +1,3 @@
-// MARKIN CAPTURADOR - Intercepta WebSocket do jogo + relay + DOM
-const API_URL = "https://painel-aviator.onrender.com/api/nova-vela";
-
-function detectarCasa() {
-    const host = window.location.hostname.replace('www.','');
-    const mapa = {
-        'sortenabet.bet.br': 'SorteNaBet',
-        'betou.bet.br': 'Betou',
-        'pixreals.com': 'PixReals',
-        'bravo.bet.br': 'BravoBet',
-        'betao.bet.br': 'Betao',
-        'apostamax.bet.br': 'ApostaMax',
-        'sebet67.com': 'Sebet',
-        'vera.bet.br': 'Vera',
-        'iaeagle.pro': 'PixReals',
-    };
-    return mapa[host] || (host.split('.')[0]);
-}
-
-function detectarAviator() {
-    return window.location.href.includes('aviator2') ? 2 : 1;
-}
-
-function calcularSoma(mult) {
-    const str = mult.toFixed(2).replace('.', '');
-    let soma = 0;
-    for (let i = 0; i < str.length && i < 3; i++) soma += parseInt(str[i]) || 0;
-    return soma;
-}
-
-const enviadas = new Set();
-
-function enviarVela(mult, rodada, timestamp, origem) {
-    const multNum = parseFloat(mult);
-    if (isNaN(multNum) || multNum <= 0) return;
-    const painel = detectarAviator();
-    const chave = painel + '_' + rodada;
-    if (enviadas.has(chave)) return;
-    enviadas.add(chave);
-
-    const horario = timestamp || new Date().toLocaleTimeString('pt-BR');
-    const casa = detectarCasa();
-
-    fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            painel, multiplicador: multNum,
-            rodada: String(rodada), timestamp: horario,
-            soma: calcularSoma(multNum), fonte: origem ? (origem + '|' + casa) : casa
-        })
-    }).then(r => r.json()).then(d => {
-        if (d.ok) console.log('✅ [' + casa + ' AVIATOR ' + painel + '] ' + multNum + 'x rodada ' + rodada);
-    }).catch(() => {});
-}
-
 // ===== FONTE 1: INTERCEPTACAO DO JOGO (main-world) - RODADA REAL =====
 window.addEventListener('aviator-ws-data', (ev) => {
     try {
@@ -64,54 +8,67 @@ window.addEventListener('aviator-ws-data', (ev) => {
         
         const items = Array.isArray(data) ? data : [data];
         for (const item of items) {
-            if (item.type === 'crash' && item.crash_point && item.round_id) {
-                const mult = parseFloat(item.crash_point);
+            // Multiplos formatos de crash do Spribe
+            const tipo = item.type || item.t || '';
+            const crash = item.crash_point || item.crashPoint || item.multiplier || item.valor;
+            const rid = item.round_id || item.roundId || item.id;
+            // Timestamp do jogo ou hora local
+            const its = item.timestamp || item.createdAt || item.time || '';
+            
+            if ((tipo === 'crash' || tipo === 'result') && crash && rid) {
+                const mult = parseFloat(crash);
                 if (mult >= 1) {
-                    const ts = new Date().toLocaleTimeString('pt-BR');
-                    enviarVela(mult, item.round_id, ts, "spribe");
+                    let ts;
+                    if (its) {
+                        try { ts = new Date(its).toLocaleTimeString('pt-BR', {timeZone:'America/Sao_Paulo',hour12:false}); } catch(e){}
+                    }
+                    if (!ts) ts = new Date().toLocaleTimeString('pt-BR');
+                    window.__ultimaRodadaReal = String(rid);
+                    console.log('🎯 JOGO WS: ' + mult + 'x | round_id=' + rid + ' | ' + ts);
+                    enviarVela(mult, rid, ts, "spribe");
                 }
             }
         }
     } catch(e) {}
 });
 
-// ===== FONTE 2: RELAY EXTERNO (fallback) =====
-function conectarWS() {
-    try {
-        const ws = new WebSocket("wss://apiglobal.appbackend.tech/ws/signals/v2/aviator");
-        ws.onopen = () => console.log("📡 Relay conectado");
-        ws.onmessage = (e) => {
-            try {
-                const msg = JSON.parse(e.data);
-                if (msg.type !== "signal") return;
-                const mult = parseFloat(msg.data?.valor);
-                if (isNaN(mult) || mult < 1) return;
-                const rodada = `r-${Date.now()}`;
-                const ts = msg.data?.createdAt
-                    ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
-                    : new Date().toLocaleTimeString('pt-BR');
-                enviarVela(mult, rodada, ts, "relay");
-            } catch(ex) {}
-        };
-        ws.onclose = () => setTimeout(conectarWS, 5000);
-        ws.onerror = () => {};
-    } catch(e) { setTimeout(conectarWS, 5000); }
-}
-conectarWS();
-
-// ===== FONTE 3: DOM SCANNER (ultimo fallback) =====
-let ultPayout = 0, maxPayoutRodada = 0;
-setInterval(() => {
-    const el = document.querySelector('.payout, .bubble-multiplier, [class*="multiplier"], [class*="payout"]');
-    if (!el) return;
-    const m = el.textContent.match(/(\d+\.?\d*)x/);
-    if (!m) return;
-    const mult = parseFloat(m[1]);
-    if (isNaN(mult)) return;
-    if (ultPayout >= 1.01 && mult <= 1.01 && maxPayoutRodada >= 1.01) {
-        enviarVela(maxPayoutRodada, `dom-${Date.now()}`, null, "dom");
-        maxPayoutRodada = 0;
+// ===== CAPTURA RODADA DO DOM (fairness modal + outros) =====
+function extrairRodada() {
+    // 1. Span do fairness (da sua descoberta no TUTORIAL)
+    const modalSpan = document.querySelector('app-fairness span.text-uppercase');
+    if (modalSpan) {
+        const match = modalSpan.textContent.match(/Rodada\s+(\d+)/i);
+        if (match) return match[1];
     }
-    if (mult > maxPayoutRodada) maxPayoutRodada = mult;
-    ultPayout = mult;
-}, 1000);
+    // 2. TreeWalker no documento principal
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+        const match = node.textContent.match(/Rodada\s+(\d+)/i);
+        if (match) return match[1];
+    }
+    // 3. Dentro de iframes (o jogo pode estar num iframe)
+    for (const iframe of document.querySelectorAll('iframe')) {
+        try {
+            if (!iframe.contentDocument) continue;
+            const w = iframe.contentDocument.createTreeWalker(iframe.contentDocument.body, NodeFilter.SHOW_TEXT, null, false);
+            let n;
+            while ((n = w.nextNode())) {
+                const m = n.textContent.match(/Rodada\s+(\d+)/i);
+                if (m) return m[1];
+            }
+        } catch(e) {}
+    }
+    // 4. round_id do WebSocket (cache)
+    if (window.__ultimaRodadaReal) return window.__ultimaRodadaReal;
+    // 5. Seletores genericos
+    const roundEl = document.querySelector('[class*="round" i], [data-round], game-round-id');
+    if (roundEl) return roundEl.getAttribute('data-round') || roundEl.textContent.trim();
+    return null;
+}
+
+// Atualiza cache da rodada periodicamente
+setInterval(() => {
+    const r = extrairRodada();
+    if (r) window.__ultimaRodadaReal = r;
+}, 300);
