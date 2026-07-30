@@ -96,7 +96,12 @@ function conectarWS() {
                 const mult = parseFloat(msg.data?.valor);
                 if (isNaN(mult) || mult < 1) return;
                 
-                const rodada = rodadaCache || extrairRodada() || `r-${Date.now()}`;
+                // Rodada: prefere DOM, fallback timestamp do relay, ultimo fallback timestamp local
+                let rodada = rodadaCache || extrairRodada();
+                if (!rodada && msg.data?.createdAt) {
+                    rodada = msg.data.createdAt.replace(/\D/g,'').slice(0,14); // 20260729213714
+                }
+                if (!rodada) rodada = String(Date.now());
                 const ts = msg.data?.createdAt
                     ? new Date(msg.data.createdAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
                     : new Date().toLocaleTimeString('pt-BR');
