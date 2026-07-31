@@ -1,21 +1,20 @@
 {
   "casas": [
-    {
-      "nome": "SorteNaBet Grafico 01",
-      "ws_url": "wss://sa-east-1-game5.spribegaming.com/BlueBox/websocket",
-      "provider": "spribe",
-      "ativo": true
-    },
-    {
-      "nome": "SorteNaBet Grafico 02",
-      "ws_url": "wss://sa-east-1-game3.spribegaming.com/BlueBox/websocket",
-      "provider": "spribe",
-      "ativo": true
-    }
+    { "nome": "SorteNaBet Aviator VIP 3",      "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true },
+    { "nome": "BravoBet Aviator Plus 3",        "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator/betou", "provider": "appbackend", "ativo": true },
+    { "nome": "Sorte na Bet grafico 1",         "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true },
+    { "nome": "Sorte na bet Grafico 2",         "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator/betou", "provider": "appbackend", "ativo": true },
+    { "nome": "ApostaX Aviator VIP",            "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true },
+    { "nome": "ApostaX Aviator",                "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator/betou", "provider": "appbackend", "ativo": true },
+    { "nome": "ApostaX Aviator Premium",        "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true },
+    { "nome": "ApostaX Aviator Elite",          "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator/betou", "provider": "appbackend", "ativo": true },
+    { "nome": "Aposta Tudo Aviator",            "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true },
+    { "nome": "Aposta Tudo Aviator 3",          "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator/betou", "provider": "appbackend", "ativo": true },
+    { "nome": "1WIN",                           "ws_url": "wss://apiglobal.appbackend.tech/ws/signals/v2/aviator", "provider": "appbackend", "ativo": true }
   ],
   "config": {
     "reconnect_delay": 5,
-    "ping_interval": 30,
+    "ping_interval": 20,
     "db_path": "../painel_aviator.db",
     "log_file": "../coletores/coletor.log"
   }

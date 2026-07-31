@@ -540,8 +540,17 @@ def seed_data():
         return  # nao apaga dados existentes
 
     casas = [
-        "SorteNaBet Grafico 01",
-        "SorteNaBet Grafico 02"
+        "SorteNaBet Aviator VIP 3",
+        "BravoBet Aviator Plus 3",
+        "Sorte na Bet grafico 1",
+        "Sorte na bet Grafico 2",
+        "ApostaX Aviator VIP",
+        "ApostaX Aviator",
+        "ApostaX Aviator Premium",
+        "ApostaX Aviator Elite",
+        "Aposta Tudo Aviator",
+        "Aposta Tudo Aviator 3",
+        "1WIN"
     ]
 
     now = datetime.datetime.now()
