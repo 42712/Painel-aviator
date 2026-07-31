@@ -328,33 +328,7 @@ def get_rounds():
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
 
-    # Try live proxy first
-    qs_parts = [f"limit={limit}&offset={offset}"]
-    if casa:
-        qs_parts.append(f"casa={urllib.parse.quote(casa)}")
-    if painel:
-        qs_parts.append(f"painel={urllib.parse.quote(painel)}")
-    if date_from:
-        qs_parts.append(f"date_from={urllib.parse.quote(date_from)}")
-    if date_to:
-        qs_parts.append(f"date_to={urllib.parse.quote(date_to)}")
-
-    try:
-        data, status = live_proxy.get_json(f"/api/rounds?{'&'.join(qs_parts)}", timeout=8)
-        if status == 200 and data.get("rows"):
-            db2 = get_db()
-            for r in data["rows"]:
-                exists = db2.execute("SELECT id FROM rounds WHERE casa=? AND round_id=?",
-                    (r["casa"], str(r["round_id"]))).fetchone()
-                if not exists:
-                    db2.execute("INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) VALUES (?,?,?,?,?)",
-                        (r["casa"], str(r["round_id"]), round(float(r["multiplier"]), 2), r["time_label"], r["captured_at"]))
-            db2.commit()
-            return jsonify(data)
-    except Exception as e:
-        print(f"[PROXY] Rounds: {e}")
-
-    # Fallback local
+    # Sempre consulta banco local primeiro (dados da extensao)
     db = get_db()
     query = "SELECT * FROM rounds WHERE 1=1"
     params = []
@@ -364,7 +338,30 @@ def get_rounds():
     query += " ORDER BY captured_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
     rows = db.execute(query, params).fetchall()
-    return jsonify({"rows": [{"casa": r['casa'],"round_id": str(r['round_id']),"multiplier": round(r['multiplier'], 2),"time_label": r['time_label'],"captured_at": r['captured_at']} for r in rows]})
+    result = {"rows": [{"casa": r['casa'],"round_id": str(r['round_id']),"multiplier": round(r['multiplier'], 2),"time_label": r['time_label'],"captured_at": r['captured_at']} for r in rows]}
+
+    # Tenta proxy do Jhow em background so para alimentar o banco
+    qs_parts = [f"limit={limit}&offset={offset}"]
+    if casa: qs_parts.append(f"casa={urllib.parse.quote(casa)}")
+    if painel: qs_parts.append(f"painel={urllib.parse.quote(painel)}")
+    if date_from: qs_parts.append(f"date_from={urllib.parse.quote(date_from)}")
+    if date_to: qs_parts.append(f"date_to={urllib.parse.quote(date_to)}")
+
+    try:
+        data, status = live_proxy.get_json(f"/api/rounds?{'&'.join(qs_parts)}", timeout=5)
+        if status == 200 and data.get("rows"):
+            db2 = get_db()
+            for r in data["rows"]:
+                exists = db2.execute("SELECT id FROM rounds WHERE casa=? AND round_id=?",
+                    (r["casa"], str(r["round_id"]))).fetchone()
+                if not exists:
+                    db2.execute("INSERT INTO rounds (casa, round_id, multiplier, time_label, captured_at) VALUES (?,?,?,?,?)",
+                        (r["casa"], str(r["round_id"]), round(float(r["multiplier"]), 2), r["time_label"], r["captured_at"]))
+            db2.commit()
+    except Exception as e:
+        print(f"[PROXY] Rounds: {e}")
+
+    return jsonify(result)
 
 @app.route('/api/rounds/hourly', methods=['GET'])
 @login_required
@@ -427,8 +424,7 @@ def get_rounds_hourly_summary():
 def get_casas():
     db = get_db()
     rows = db.execute("SELECT DISTINCT casa FROM rounds ORDER BY casa").fetchall()
-    casas = [r['casa'] for r in rows if r['casa'] in CASAS_VALIDAS]
-    return jsonify({"casas": casas})
+    return jsonify({"casas": [r['casa'] for r in rows]})
 
 # --- Payments ---
 
@@ -529,8 +525,6 @@ def api_nova_vela():
         if not mult or float(mult) < 1.0:
             return jsonify({"erro": "Multiplicador invalido"}), 400
         casa = dados.get('fonte', 'Extensao')
-        if casa not in CASAS_VALIDAS:
-            return jsonify({"erro": f"Casa nao autorizada: {casa}"}), 400
         rodada_id = str(dados.get('rodada', ''))
         ts = dados.get('timestamp', '')
         now = datetime.datetime.now()
