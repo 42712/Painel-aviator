@@ -427,7 +427,8 @@ def get_rounds_hourly_summary():
 def get_casas():
     db = get_db()
     rows = db.execute("SELECT DISTINCT casa FROM rounds ORDER BY casa").fetchall()
-    return jsonify({"casas": [r['casa'] for r in rows]})
+    casas = [r['casa'] for r in rows if r['casa'] in CASAS_VALIDAS]
+    return jsonify({"casas": casas})
 
 # --- Payments ---
 
@@ -502,6 +503,21 @@ def LOGO_AVIATOR():
 def assinatura_expirada():
     return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Assinatura Expirada</title></head><body style="background:#030814;color:#f8fafc;font-family:Arial;text-align:center;padding:50px"><h1>Sua assinatura expirou</h1><p>Entre em contato para renovar seu acesso.</p><a href="/login" style="color:#93c5fd">Voltar para o login</a></body></html>'
 
+# --- Casas oficiais do Jhow ---
+CASAS_VALIDAS = [
+    "SorteNaBet Aviator VIP 3",
+    "BravoBet Aviator Plus 3",
+    "Sorte na Bet grafico 1",
+    "Sorte na bet Grafico 2",
+    "ApostaX Aviator VIP",
+    "ApostaX Aviator",
+    "ApostaX Aviator Premium",
+    "ApostaX Aviator Elite",
+    "Aposta Tudo Aviator",
+    "Aposta Tudo Aviator 3",
+    "1WIN"
+]
+
 # --- Webhook da extensao (recebe velas em tempo real) ---
 @app.route('/api/nova-vela', methods=['POST'])
 def api_nova_vela():
@@ -513,6 +529,8 @@ def api_nova_vela():
         if not mult or float(mult) < 1.0:
             return jsonify({"erro": "Multiplicador invalido"}), 400
         casa = dados.get('fonte', 'Extensao')
+        if casa not in CASAS_VALIDAS:
+            return jsonify({"erro": f"Casa nao autorizada: {casa}"}), 400
         rodada_id = str(dados.get('rodada', ''))
         ts = dados.get('timestamp', '')
         now = datetime.datetime.now()
@@ -532,6 +550,17 @@ def api_nova_vela():
         return jsonify({"erro": str(e)}), 500
 
 # --- Seed Data ---
+
+def limpar_casas_invalidas():
+    """Remove do banco casas que nao estao na lista oficial do Jhow"""
+    db = get_db()
+    todas = db.execute("SELECT DISTINCT casa FROM rounds").fetchall()
+    for r in todas:
+        if r['casa'] not in CASAS_VALIDAS:
+            count = db.execute("SELECT COUNT(*) FROM rounds WHERE casa=?", (r['casa'],)).fetchone()[0]
+            db.execute("DELETE FROM rounds WHERE casa=?", (r['casa'],))
+            db.commit()
+            print(f"[LIMPEZA] Removidas {count} rodadas da casa invalida: {r['casa']}")
 
 def seed_data():
     db = get_db()
@@ -600,6 +629,7 @@ def seed_data():
 # Inicialização que roda em qualquer ambiente (gunicorn ou python app.py)
 with app.app_context():
     seed_data()
+    limpar_casas_invalidas()
 
 # Inicia coletores WebSocket em background (independente do site oficial)
 try:
