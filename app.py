@@ -483,6 +483,10 @@ def vr5_painel():
 def vr5_v35_painel():
     return render_template('painel_vr5_v35.html')
 
+@app.route('/pcd')
+def pcd_painel():
+    return render_template('pcd.html')
+
 @app.route('/logo_aviator.png')
 def logo_aviator():
     from flask import send_from_directory
